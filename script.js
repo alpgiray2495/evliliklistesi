@@ -103,7 +103,16 @@ function mountRoom(roomId, roomName){
     const btn=e.target.closest('[data-act]'); if(!btn) return;
     const act=btn.getAttribute('data-act');
     if(act==='add-item') await addItem(roomId, root);
-    if(act==='clear-inputs'){ root.querySelector('.item-name').value=''; root.querySelector('.item-price').value=''; root.querySelector('.item-sub').value=''; root.querySelector('.item-payment').value='Peşin'; root.querySelector('.item-installments').value=''; root.querySelector('.item-installment-total').value=''; root.querySelector('.item-installments').classList.add('hidden'); root.querySelector('.item-installment-total').classList.add('hidden'); }
+    if(act==='clear-inputs'){ 
+      root.querySelector('.item-name').value=''; 
+      root.querySelector('.item-price').value=''; 
+      root.querySelector('.item-sub').value=''; 
+      root.querySelector('.item-payment').value='Peşin'; 
+      root.querySelector('.item-installments').value=''; 
+      root.querySelector('.item-installment-total').value=''; 
+      root.querySelector('.item-installments').classList.add('hidden'); 
+      root.querySelector('.item-installment-total').classList.add('hidden'); 
+    }
     if(act==='delete-room') await deleteRoom(roomId);
   });
 
@@ -292,35 +301,60 @@ function exportToXLSX(){
 function exportToPDF(){
   if(typeof pdfMake==='undefined' || !pdfMake.createPdf) throw new Error('pdfmake yok');
   const sections=Object.entries(state.rooms).map(([rid,r])=>({id:rid, ...r}));
-  const content=[ {text:'Evlilik Listesi', style:'title'}, {text:new Date().toLocaleString('tr-TR'), style:'subtitle', margin:[0,0,0,8]} ];
+  const content=[
+    {text:'Evlilik Listesi', style:'title'},
+    {text:new Date().toLocaleString('tr-TR'), style:'subtitle', margin:[0,0,0,8]}
+  ];
   sections.forEach((r,idx)=>{
-    const body=[[{text:'Ürün',style:'th'},{text:'Ara Başlık',style:'th'},{text:'Ödeme',style:'th'},
+    const body=[[
+      {text:'Ürün',style:'th'},{text:'Ara Başlık',style:'th'},{text:'Ödeme',style:'th'},
       {text:'Taksit',style:'th',alignment:'right'},{text:'Taksitli Toplam',style:'th',alignment:'right'},
-      {text:'Peşin Fiyat',style:'th',alignment:'right'},{text:'Toplam (Efektif)',style:'th',alignment:'right'}]];
+      {text:'Peşin Fiyat',style:'th',alignment:'right'},{text:'Toplam (Efektif)',style:'th',alignment:'right'}
+    ]];
     const rows=(r.items||[]).map(it=>{
       const inst=Number(it.installments)||0, instTot=Number(it.installmentTotal)||0, price=Number(it.price)||0, eff=effectivePrice(it);
-      return [{text:it.name,noWrap:false},{text:it.sub||''},{text:it.paymentType||'Peşin'},
+      return [
+        {text:it.name,noWrap:false},
+        {text:it.sub||''},
+        {text:it.paymentType||'Peşin'},
         {text:inst?String(inst):'-',alignment:'right'},
         {text:instTot?instTot.toLocaleString('tr-TR',{style:'currency',currency:'TRY'}):'-',alignment:'right'},
         {text:price?price.toLocaleString('tr-TR',{style:'currency',currency:'TRY'}):'-',alignment:'right'},
-        {text:eff.toLocaleString('tr-TR',{style:'currency',currency:'TRY'}),alignment:'right'}];
+        {text:eff.toLocaleString('tr-TR',{style:'currency',currency:'TRY'}),alignment:'right'}
+      ];
     });
-    if(rows.length===0) rows.push([{text:'(boş)',colSpan:7,alignment:'center',italics:true},{},{},{},{},{},{}]);
-    body.push(*rows);
+    body.push(...rows); // spread correct
     const roomTotal=(r.items||[]).reduce((s,it)=>s+effectivePrice(it),0);
-    body.push([{text:'Başlık Toplamı',colSpan:6,alignment:'right',bold:true},{},{},{},{},{},{text:roomTotal.toLocaleString('tr-TR',{style:'currency',currency:'TRY'}),alignment:'right',bold:true}]);
-    content.push({text:`${r.name} (${(r.items||[]).length} ürün)`, style:'sectionTitle', margin:[0,idx===0?0:10,0,4]},
-      {table:{headerRows:1,widths:['*',110,60,35,75,75,90],body},
-       layout:{fillColor:(row)=>row===0?'#f3f4f6':null,hLineColor:'#e5e7eb',vLineColor:'#e5e7eb'}});
+    body.push([
+      {text:'Başlık Toplamı',colSpan:6,alignment:'right',bold:true},{},{},{},{},{}, 
+      {text:roomTotal.toLocaleString('tr-TR',{style:'currency',currency:'TRY'}),alignment:'right',bold:true}
+    ]);
+    content.push(
+      {text:`${r.name} (${(r.items||[]).length} ürün)`, style:'sectionTitle', margin:[0,idx===0?0:10,0,4]},
+      {
+        table:{headerRows:1,widths:['*',110,60,35,75,75,90],body},
+        layout:{fillColor:(row)=>row===0?'#f3f4f6':null,hLineColor:'#e5e7eb',vLineColor:'#e5e7eb'}
+      }
+    );
   });
   const grand=sections.flatMap(r=>r.items||[]).reduce((s,it)=>s+effectivePrice(it),0);
   content.push({text:`Genel Toplam: ${grand.toLocaleString('tr-TR',{style:'currency',currency:'TRY'})}`, style:'grandTotal', margin:[0,10,0,0]});
-  pdfMake.createPdf({ pageSize:'A4', pageMargins:[30,40,30,40], defaultStyle:{font:'Roboto',fontSize:10},
+  const docDefinition={
+    pageSize:'A4',
+    pageMargins:[30,40,30,40],
+    defaultStyle:{font:'Roboto',fontSize:10},
     styles:{ title:{fontSize:18,bold:true}, subtitle:{color:'#6b7280',margin:[0,0,0,6]}, sectionTitle:{fontSize:12,bold:true},
              th:{bold:true}, grandTotal:{fontSize:12,bold:true}},
-    footer:(p,pc)=>({text:`${p} / ${pc}`,alignment:'right',margin:[0,0,30,0],color:'#9ca3af']} ).download('evlilik-listesi.pdf');
+    footer:(p,pc)=>({text:`${p} / ${pc}`,alignment:'right',margin:[0,0,30,0],color:'#9ca3af'}),
+    content
+  };
+  pdfMake.createPdf(docDefinition).download('evlilik-listesi.pdf');
 }
 
-document.getElementById('addRoomBtn').addEventListener('click', ()=>{ const name=document.getElementById('newRoomName').value.trim(); if(!name) return alert('Başlık (Tanım) girin.'); addRoom(name); document.getElementById('newRoomName').value=''; });
+// UI events
+document.getElementById('addRoomBtn').addEventListener('click', ()=>{
+  const name=document.getElementById('newRoomName').value.trim(); if(!name) return alert('Başlık (Tanım) girin.');
+  addRoom(name); document.getElementById('newRoomName').value='';
+});
 [$sectionFilter,$subFilter,$statusFilter].forEach(el=>el.addEventListener('change', applyFilters));
 $searchInput.addEventListener('input', applyFilters);
