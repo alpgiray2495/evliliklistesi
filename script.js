@@ -3,7 +3,7 @@
    - Email/Şifre + Google oturum
    - Her kullanıcı kendi verisini görür: users/{uid}/rooms/{roomId}/items/{itemId}
    - onSnapshot ile gerçek-zamanlı
-   - Filtre/toplamlar ve JSON içe-dışa aktar
+   - Filtre/toplamlar ve XLSX/PDF dışa aktar
 ======================= */
 
 // ---- Firebase SDK (modüler CDN) ----
@@ -173,8 +173,8 @@ function initRealtime(uid) {
         mountRoom(id, ch.doc.data().name);
         subscribeItems(uid, id);
       } else if (ch.type === 'modified') {
+        const el = document.getElementById(id); if (el) el.querySelector('.room-title').textContent = ch.doc.data().name;
         state.rooms[id].name = ch.doc.data().name;
-        { const el = document.getElementById(id); if (el) el.querySelector('.room-title').textContent = ch.doc.data().name; }
       } else if (ch.type === 'removed') {
         if (state.unsubItems[id]) { state.unsubItems[id](); delete state.unsubItems[id]; }
         delete state.rooms[id];
@@ -401,17 +401,22 @@ function exportToXLSX() {
   const wb = XLSX.utils.book_new();
   // Summary sheet
   const allItems = Object.entries(state.rooms).flatMap(([rid, r]) => r.items.map(it => ({
-    Oda: state.rooms[rid].name,
-    Ürün: it.name,
-    Kategori: it.category||'Genel',
-    Fiyat: Number(it.price)||0,
-    Durum: it.purchased ? 'Satın alındı' : 'Bekliyor'
+    'Oda': state.rooms[rid].name,
+    'Ürün': it.name,
+    'Kategori': it.category||'Genel',
+    'Fiyat (TRY)': Number(it.price)||0,
+    'Satın alındı': it.purchased ? 'Evet' : 'Hayır'
   })));
   const sumSheet = XLSX.utils.json_to_sheet(allItems);
   XLSX.utils.book_append_sheet(wb, sumSheet, 'Özet');
   // Per-room sheets
   Object.entries(state.rooms).forEach(([rid, r]) => {
-    const rows = r.items.map(it => ({ Ürün: it.name, Kategori: it.category||'Genel', Fiyat: Number(it.price)||0, Durum: it.purchased?'Satın alındı':'Bekliyor' }));
+    const rows = r.items.map(it => ({
+      'Ürün': it.name,
+      'Kategori': it.category||'Genel',
+      'Fiyat (TRY)': Number(it.price)||0,
+      'Satın alındı': it.purchased ? 'Evet' : 'Hayır'
+    }));
     const sh = XLSX.utils.json_to_sheet(rows.length ? rows : [{Bilgi:'Bu odada ürün yok'}]);
     XLSX.utils.book_append_sheet(wb, sh, r.name.substring(0,31));
   });
@@ -425,13 +430,11 @@ function exportToPDF() {
   doc.setFontSize(16); doc.text('Evlilik Listesi', margin, y); y += 16;
   doc.setFontSize(10); doc.text(new Date().toLocaleString('tr-TR'), margin, y); y += 14;
 
-  const autoTable = doc.autoTable || (doc as any).autoTable; // typesafe değil ama tarayıcıda mevcut
-
   Object.entries(state.rooms).forEach(([rid, r], idx) => {
     if (idx>0) y += 10;
     doc.setFontSize(12); doc.text(r.name + ' (' + r.items.length + ' ürün)', margin, y); y += 6;
     const body = r.items.map(it => [it.name, it.category||'Genel', (Number(it.price)||0).toLocaleString('tr-TR', {style:'currency', currency:'TRY'}), it.purchased?'Evet':'Hayır']);
-    (doc as any).autoTable({
+    doc.autoTable({
       head: [['Ürün', 'Kategori', 'Fiyat', 'Satın alındı']],
       body: body.length ? body : [['(boş)', '-', '-', '-']],
       startY: y,
@@ -439,7 +442,7 @@ function exportToPDF() {
       headStyles: { fillColor: [240,240,240] },
       margin: { left: margin, right: margin }
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = doc.lastAutoTable.finalY + 8;
     const total = r.items.reduce((s,it)=>s+(Number(it.price)||0),0);
     doc.setFontSize(10); doc.text('Oda Toplamı: ' + total.toLocaleString('tr-TR', {style:'currency', currency:'TRY'}), margin, y);
     y += 10;
@@ -451,7 +454,6 @@ function exportToPDF() {
   doc.setFontSize(12); doc.text('Genel Toplam: ' + grand.toLocaleString('tr-TR', {style:'currency', currency:'TRY'}), margin, y+6);
   doc.save('evlilik-listesi.pdf');
 }
-
 
 // ---- UI events ----
 document.getElementById('addRoomBtn').addEventListener('click', () => {

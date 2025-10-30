@@ -1,7 +1,8 @@
-/* Yardımcı stiller */
+/* Yardımcı stiller ve mobil uyumluluk */
 :root { --radius-xl: 1rem; }
 .card { background: #fff; border-radius: var(--radius-xl); box-shadow: 0 6px 18px rgba(0,0,0,0.08); padding: 1rem; }
 .inp { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; width: 100%; }
+.select-wide { min-width: 160px; }
 .btn { background: #2563eb; color: #fff; padding: 0.5rem 1rem; border-radius: 0.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
 .btn:hover { background: #1d4ed8; }
 .btn-subtle { background: #f3f4f6; color: #111827; padding: 0.5rem 1rem; border-radius: 0.5rem; }
@@ -10,3 +11,5 @@
 .icon-btn:hover { background: #f3f4f6; }
 .purchased .item-name-text { text-decoration: line-through; opacity: .7; }
 .hidden { display: none; }
+/* Uzun metinler taşmasın */
+.room-card .item-name-text { word-break: break-word; }

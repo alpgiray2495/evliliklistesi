@@ -1,965 +1,186 @@
 <!doctype html>
 <html lang="tr">
- <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Evlilik Alışveriş Listesi</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-        body {
-            box-sizing: border-box;
-        }
-        .room-card {
-            transition: all 0.3s ease;
-        }
-        .room-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        }
-        .item-row {
-            transition: all 0.2s ease;
-        }
-        .item-row:hover {
-            background-color: #f8fafc;
-        }
-    </style>
-  <style>@view-transition { navigation: auto; }</style>
-  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
-  <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
- </head>
- <body class="bg-gradient-to-br from-pink-50 to-purple-50 min-h-full">
-  <div class="container mx-auto px-4 py-8">
-   <header class="text-center mb-8">
-    <h1 class="text-4xl font-bold text-purple-800 mb-2">💍 Evlilik Alışveriş Listesi</h1>
-    <p class="text-gray-600">Yeni yuvanız için ihtiyacınız olan her şeyi organize edin</p>
-   </header><!-- Filtreleme ve Özet -->
-   <div class="bg-white rounded-xl shadow-lg p-6 mb-8 border-l-4 border-purple-500"><!-- Filtreleme Bölümü -->
-    <div class="mb-6 pb-6 border-b border-gray-200">
-     <h3 class="text-lg font-semibold text-gray-800 mb-4">🔍 Filtreleme Seçenekleri</h3>
-     <div class="grid grid-cols-1 md:grid-cols-3 gap-4"><!-- Oda Filtresi -->
-      <div><label class="block text-sm font-medium text-gray-700 mb-2">Oda Seçimi</label> <select id="roomFilter" onchange="applyFilters()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"> <option value="">Tüm Odalar</option> </select>
-      </div><!-- Kategori Filtresi -->
-      <div><label class="block text-sm font-medium text-gray-700 mb-2">Kategori Seçimi</label> <select id="categoryFilter" onchange="applyFilters()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"> <option value="">Tüm Kategoriler</option> <option value="Mobilya">🪑 Mobilya</option> <option value="Beyaz Eşya">🏠 Beyaz Eşya</option> <option value="Tekstil">🛏️ Tekstil</option> <option value="Elektronik">📱 Elektronik</option> <option value="Mutfak Gereçleri">🍳 Mutfak Gereçleri</option> <option value="Temizlik">🧽 Temizlik</option> <option value="Dekorasyon">🎨 Dekorasyon</option> <option value="Güvenlik">🔒 Güvenlik</option> <option value="Aydınlatma">💡 Aydınlatma</option> <option value="Banyo">🚿 Banyo</option> <option value="Çocuk">👶 Çocuk</option> <option value="Araç Gereç">🔧 Araç Gereç</option> </select>
-      </div><!-- Durum Filtresi -->
-      <div><label class="block text-sm font-medium text-gray-700 mb-2">Satın Alma Durumu</label> <select id="statusFilter" onchange="applyFilters()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"> <option value="">Tümü</option> <option value="purchased">✅ Satın Alınanlar</option> <option value="pending">⏳ Bekleyenler</option> </select>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Evlilik Listesi</title>
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Özel stiller -->
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="bg-gray-50 text-gray-900">
+    <header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h1 class="text-xl md:text-2xl font-bold" role="heading" aria-level="1">Evlilik Listesi</h1>
+        <div class="flex flex-wrap items-center gap-2 md:gap-3">
+          <!-- Oturum açıkken gözükecek kutu -->
+          <div id="userBox" class="hidden flex flex-wrap items-center gap-2 md:gap-3">
+            <span id="userEmail" class="text-sm text-gray-600 truncate max-w-[220px] md:max-w-none"></span>
+            <button id="exportXlsxBtn" class="btn-subtle" aria-label="Excel olarak dışa aktar">Excel (XLSX)</button>
+            <button id="exportPdfBtn" class="btn-subtle" aria-label="PDF olarak dışa çıkar">PDF</button>
+            <button id="signOutBtn" class="btn-subtle">Çıkış</button>
+          </div>
+        </div>
       </div>
-     </div><!-- Arama Kutusu -->
-     <div class="mt-4"><label class="block text-sm font-medium text-gray-700 mb-2">Ürün Arama</label> <input type="text" id="searchInput" placeholder="Ürün adı ile arama yapın..." oninput="applyFilters()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-     </div><!-- Filtreleri Temizle -->
-     <div class="mt-4 text-center"><button onclick="clearFilters()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"> 🔄 Filtreleri Temizle </button>
-     </div>
-    </div><!-- Toplam Özet -->
-    <div class="flex justify-between items-center">
-     <div>
-      <h2 class="text-2xl font-bold text-gray-800">Toplam Bütçe</h2>
-      <p class="text-gray-600">Tüm odalar için hesaplanan toplam</p>
-     </div>
-     <div class="text-right">
-      <div class="text-3xl font-bold text-purple-600" id="grandTotal">
-       ₺0
+    </header>
+
+    <!-- AUTH SECTION (giriş/kayıt/sıfırla) -->
+    <section id="authSection" class="max-w-md mx-auto mt-8 px-4">
+      <div class="card">
+        <h2 class="text-xl font-semibold mb-4">Giriş Yap</h2>
+        <div class="grid gap-3">
+          <input id="authEmail" type="email" class="inp" placeholder="E-posta" autocomplete="username" />
+          <input id="authPassword" type="password" class="inp" placeholder="Şifre" autocomplete="current-password" />
+          <button id="signInBtn" class="btn w-full">Giriş Yap</button>
+          <button id="googleBtn" class="btn-subtle w-full">Google ile devam et</button>
+          <div class="text-sm text-gray-600 flex flex-wrap gap-2 mt-2">
+            <button id="toRegister" class="underline">Hesabın yok mu? Kayıt ol</button>
+            <span>•</span>
+            <button id="toReset" class="underline">Şifremi unuttum</button>
+          </div>
+        </div>
       </div>
-      <div class="text-sm text-gray-500" id="totalItems">
-       0 ürün
+
+      <div id="registerCard" class="card mt-6 hidden">
+        <h2 class="text-xl font-semibold mb-4">Kayıt Ol</h2>
+        <div class="grid gap-3">
+          <input id="regEmail" type="email" class="inp" placeholder="E-posta" autocomplete="username" />
+          <input id="regPassword" type="password" class="inp" placeholder="Şifre (min 6)" autocomplete="new-password" />
+          <button id="registerBtn" class="btn w-full">Kayıt Ol</button>
+          <div class="text-sm text-gray-600 flex flex-wrap gap-2 mt-2">
+            <button id="backToLogin1" class="underline">Giriş ekranına dön</button>
+          </div>
+        </div>
       </div>
-     </div>
-    </div>
-   </div><!-- Odalar Container -->
-   <div id="roomsContainer" class="space-y-6"><!-- Odalar buraya dinamik olarak eklenecek -->
-   </div><!-- Yeni Oda Ekleme -->
-   <div class="bg-white rounded-xl shadow-lg p-6 mt-8">
-    <h3 class="text-xl font-semibold text-gray-800 mb-4">🏠 Yeni Oda Ekle</h3>
-    <div class="flex gap-3"><input type="text" id="newRoomName" placeholder="Oda adı (örn: Yatak Odası)" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"> <button onclick="addRoom()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"> Oda Ekle </button>
-    </div>
-   </div>
-  </div>
-  <script>
-        let rooms = {};
-        let roomCounter = 0;
 
-        // Başlangıç odaları
-        const initialRooms = [
-            'Yatak Odası',
-            'Oturma Odası', 
-            'Mutfak',
-            'Banyo',
-            'Çocuk Odası',
-            'Genel'
-        ];
+      <div id="resetCard" class="card mt-6 hidden">
+        <h2 class="text-xl font-semibold mb-4">Şifre Sıfırla</h2>
+        <div class="grid gap-3">
+          <input id="resetEmail" type="email" class="inp" placeholder="E-posta" />
+          <button id="resetBtn" class="btn w-full">Sıfırlama Bağlantısı Gönder</button>
+          <div class="text-sm text-gray-600 flex flex-wrap gap-2 mt-2">
+            <button id="backToLogin2" class="underline">Giriş ekranına dön</button>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        // Sayfa yüklendiğinde başlangıç odalarını oluştur
-        window.onload = function() {
-            initialRooms.forEach(roomName => {
-                createRoom(roomName);
-            });
-            
-            // Örnek eşyaları ekle
-            addSampleItems();
-        };
+    <!-- APP SECTION (oturum olmadan gizli) -->
+    <main id="appShell" class="hidden max-w-6xl mx-auto px-4 py-6 flex flex-col gap-6">
+      <!-- Özet kutuları -->
+      <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="card">
+          <div class="text-gray-500 text-sm">Toplam Bütçe</div>
+          <div id="grandTotal" class="text-2xl font-semibold">₺0</div>
+          <div id="filterSummary" class="text-right text-sm text-gray-600 mt-1 hidden">
+            <span>Filtrelenenler toplamı: <span id="filteredTotalTL">₺0</span></span>
+            <span class="mx-1">•</span>
+            <span id="filteredCount">0 ürün</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="text-gray-500 text-sm">Ürün Sayısı</div>
+          <div id="grandCount" class="text-2xl font-semibold">0</div>
+        </div>
+        <div class="card">
+          <div class="text-gray-500 text-sm">Satın Alınanlar</div>
+          <div id="purchasedStats" class="text-2xl font-semibold">0 / 0</div>
+        </div>
+      </section>
 
-        function addSampleItems() {
-            // Yatak Odası eşyaları
-            const bedroomItems = [
-                {name: 'Çift Kişilik Yatak Çerçevesi', price: 8500, category: 'Mobilya'},
-                {name: 'Yatak Başlığı', price: 2500, category: 'Mobilya'},
-                {name: 'Ortopedik Yatak 160x200', price: 4500, category: 'Mobilya'},
-                {name: 'Visco Yatak 160x200', price: 6500, category: 'Mobilya'},
-                {name: 'Yastık (2 adet)', price: 800, category: 'Tekstil'},
-                {name: 'Boyun Yastığı (2 adet)', price: 450, category: 'Tekstil'},
-                {name: 'Nevresim Takımı (3 takım)', price: 1350, category: 'Tekstil'},
-                {name: 'Çarşaf Takımı (3 takım)', price: 900, category: 'Tekstil'},
-                {name: 'Yastık Kılıfı (6 adet)', price: 180, category: 'Tekstil'},
-                {name: 'Battaniye', price: 650, category: 'Tekstil'},
-                {name: 'Yatak Örtüsü', price: 350, category: 'Tekstil'},
-                {name: 'Yaz Yorgan', price: 450, category: 'Tekstil'},
-                {name: 'Kış Yorgan', price: 750, category: 'Tekstil'},
-                {name: 'Gardırop 4 Kapılı', price: 12000, category: 'Mobilya'},
-                {name: 'Şifonyer', price: 3500, category: 'Mobilya'},
-                {name: 'Komodin (2 adet)', price: 1800, category: 'Mobilya'},
-                {name: 'Yatak Odası Takımı', price: 25000, category: 'Mobilya'},
-                {name: 'Abajur (2 adet)', price: 900, category: 'Aydınlatma'},
-                {name: 'Tavan Lambası', price: 650, category: 'Aydınlatma'},
-                {name: 'Gece Lambası', price: 250, category: 'Aydınlatma'},
-                {name: 'Büyük Ayna', price: 800, category: 'Dekorasyon'},
-                {name: 'Makyaj Masası', price: 2200, category: 'Mobilya'},
-                {name: 'Makyaj Masası Sandalyesi', price: 650, category: 'Mobilya'},
-                {name: 'Perde (Blackout)', price: 1200, category: 'Tekstil'},
-                {name: 'Tül Perde', price: 450, category: 'Tekstil'},
-                {name: 'Perde Rayı', price: 350, category: 'Dekorasyon'},
-                {name: 'Yatak Odası Halısı', price: 2500, category: 'Tekstil'},
-                {name: 'Ayak Paspası', price: 150, category: 'Tekstil'},
-                {name: 'Çamaşır Sepeti', price: 180, category: 'Temizlik'},
-                {name: 'Ayakkabı Dolabı', price: 1200, category: 'Mobilya'},
-                {name: 'Elbise Askısı (20 adet)', price: 100, category: 'Dekorasyon'},
-                {name: 'Çekmece Düzenleyici', price: 250, category: 'Dekorasyon'},
-                {name: 'Parfüm Rafı', price: 180, category: 'Dekorasyon'},
-                {name: 'Saatli Radyo', price: 350, category: 'Elektronik'},
-                {name: 'Humidifier', price: 450, category: 'Elektronik'}
-            ];
+      <!-- Ekleme ve filtreler -->
+      <section class="card p-4">
+        <div class="grid gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
+            <input id="newRoomName" type="text" placeholder="Yeni oda adı" class="inp md:col-span-4" />
+            <button id="addRoomBtn" class="btn md:col-span-2">Oda Ekle</button>
+          </div>
 
-            // Oturma Odası eşyaları
-            const livingRoomItems = [
-                {name: 'Koltuk Takımı (3+2+1)', price: 15000, category: 'Mobilya'},
-                {name: 'Orta Sehpa', price: 2200, category: 'Mobilya'},
-                {name: 'TV Ünitesi', price: 4500, category: 'Mobilya'},
-                {name: 'Televizyon 55"', price: 12000, category: 'Elektronik'},
-                {name: 'Kitaplık', price: 3200, category: 'Mobilya'},
-                {name: 'Yan Sehpa', price: 800, category: 'Mobilya'},
-                {name: 'Berjer Koltuk', price: 3500, category: 'Mobilya'},
-                {name: 'Puf', price: 650, category: 'Mobilya'},
-                {name: 'Salon Halısı', price: 3500, category: 'Tekstil'},
-                {name: 'Perde', price: 1800, category: 'Tekstil'},
-                {name: 'Tablo/Duvar Süsü', price: 450, category: 'Dekorasyon'},
-                {name: 'Vazo', price: 250, category: 'Dekorasyon'},
-                {name: 'Avize', price: 1200, category: 'Aydınlatma'},
-                {name: 'Klima', price: 8500, category: 'Beyaz Eşya'}
-            ];
+          <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2">
+            <select id="roomFilter" class="inp select-wide" aria-label="Oda filtresi">
+              <option value="">Tüm Odalar</option>
+            </select>
+            <select id="categoryFilter" class="inp select-wide" aria-label="Kategori filtresi">
+              <option value="">Tüm Kategoriler</option>
+            </select>
+            <select id="statusFilter" class="inp select-wide" aria-label="Durum filtresi">
+              <option value="">Durum: Hepsi</option>
+              <option value="purchased">Satın alınanlar</option>
+              <option value="not">Satın alınmayanlar</option>
+            </select>
+            <input id="searchInput" type="search" placeholder="Ara: ürün adı" class="inp" aria-label="Ürün adı ara" />
+          </div>
+        </div>
+      </section>
 
-            // Mutfak eşyaları
-            const kitchenItems = [
-                // Büyük Beyaz Eşya
-                {name: 'Buzdolabı No-Frost 600L', price: 15000, category: 'Beyaz Eşya'},
-                {name: 'Ankastre Fırın', price: 4500, category: 'Beyaz Eşya'},
-                {name: 'Ankastre Ocak 4 Gözlü', price: 3500, category: 'Beyaz Eşya'},
-                {name: 'Davlumbaz 90cm', price: 2800, category: 'Beyaz Eşya'},
-                {name: 'Bulaşık Makinesi 12 Kişilik', price: 8500, category: 'Beyaz Eşya'},
-                {name: 'Mikrodalga Fırın', price: 2200, category: 'Beyaz Eşya'},
-                {name: 'Derin Dondurucu', price: 6500, category: 'Beyaz Eşya'},
-                
-                // Mutfak Mobilyası
-                {name: 'Mutfak Dolabı Üst+Alt', price: 18000, category: 'Mobilya'},
-                {name: 'Mutfak Tezgahı Granit', price: 5500, category: 'Mobilya'},
-                {name: 'Mutfak Evyesi Çift Gözlü', price: 1200, category: 'Mobilya'},
-                {name: 'Mutfak Musluk', price: 450, category: 'Mobilya'},
-                {name: 'Mutfak Aydınlatma', price: 800, category: 'Aydınlatma'},
-                
-                // Küçük Ev Aletleri
-                {name: 'Çay Makinesi', price: 800, category: 'Elektronik'},
-                {name: 'Kahve Makinesi Otomatik', price: 1500, category: 'Elektronik'},
-                {name: 'Espresso Makinesi', price: 2500, category: 'Elektronik'},
-                {name: 'Blender Seti', price: 650, category: 'Elektronik'},
-                {name: 'Rondo', price: 450, category: 'Elektronik'},
-                {name: 'Mikser', price: 350, category: 'Elektronik'},
-                {name: 'Tost Makinesi', price: 350, category: 'Elektronik'},
-                {name: 'Waffle Makinesi', price: 280, category: 'Elektronik'},
-                {name: 'Su Isıtıcısı', price: 450, category: 'Elektronik'},
-                {name: 'Çay Makinesi Elektrikli', price: 650, category: 'Elektronik'},
-                {name: 'Meyve Sıkacağı', price: 180, category: 'Elektronik'},
-                {name: 'Et Kıyma Makinesi', price: 450, category: 'Elektronik'},
-                {name: 'Mutfak Robotu', price: 1800, category: 'Elektronik'},
-                
-                // Pişirme Gereçleri
-                {name: 'Tencere Takımı 9 Parça', price: 1800, category: 'Mutfak Gereçleri'},
-                {name: 'Tava Seti Granit', price: 650, category: 'Mutfak Gereçleri'},
-                {name: 'Wok Tava', price: 250, category: 'Mutfak Gereçleri'},
-                {name: 'Döküm Tencere', price: 450, category: 'Mutfak Gereçleri'},
-                {name: 'Düdüklü Tencere', price: 350, category: 'Mutfak Gereçleri'},
-                {name: 'Izgara Tava', price: 180, category: 'Mutfak Gereçleri'},
-                {name: 'Kek Kalıbı Seti', price: 120, category: 'Mutfak Gereçleri'},
-                {name: 'Fırın Tepsisi (3 adet)', price: 150, category: 'Mutfak Gereçleri'},
-                
-                // Mutfak Gereçleri
-                {name: 'Bıçak Seti 6 Parça', price: 450, category: 'Mutfak Gereçleri'},
-                {name: 'Kesme Tahtası Seti', price: 150, category: 'Mutfak Gereçleri'},
-                {name: 'Kevgir Seti', price: 80, category: 'Mutfak Gereçleri'},
-                {name: 'Kaşık Seti Ahşap', price: 60, category: 'Mutfak Gereçleri'},
-                {name: 'Spatula Seti', price: 45, category: 'Mutfak Gereçleri'},
-                {name: 'Açacak Seti', price: 35, category: 'Mutfak Gereçleri'},
-                {name: 'Mutfak Makası', price: 25, category: 'Mutfak Gereçleri'},
-                {name: 'Rendeler Seti', price: 80, category: 'Mutfak Gereçleri'},
-                {name: 'Süzgeç Seti', price: 60, category: 'Mutfak Gereçleri'},
-                {name: 'Karıştırma Kabı Seti', price: 120, category: 'Mutfak Gereçleri'},
-                {name: 'Ölçü Kabı Seti', price: 80, category: 'Mutfak Gereçleri'},
-                {name: 'Mutfak Terazisi Dijital', price: 250, category: 'Elektronik'},
-                
-                // Sofra Takımları
-                {name: 'Yemek Takımı 12 Kişilik', price: 1200, category: 'Mutfak Gereçleri'},
-                {name: 'Çatal Kaşık Takımı 12 Kişi', price: 800, category: 'Mutfak Gereçleri'},
-                {name: 'Bardak Seti 12 Adet', price: 300, category: 'Mutfak Gereçleri'},
-                {name: 'Su Bardağı Seti', price: 180, category: 'Mutfak Gereçleri'},
-                {name: 'Çay Bardağı Seti', price: 200, category: 'Mutfak Gereçleri'},
-                {name: 'Fincan Takımı 12 Kişi', price: 450, category: 'Mutfak Gereçleri'},
-                {name: 'Kahve Fincanı Seti', price: 280, category: 'Mutfak Gereçleri'},
-                {name: 'Çay Seti Porselen', price: 650, category: 'Mutfak Gereçleri'},
-                {name: 'Servis Tabağı Seti', price: 350, category: 'Mutfak Gereçleri'},
-                {name: 'Salata Kasesi Seti', price: 180, category: 'Mutfak Gereçleri'},
-                
-                // Saklama ve Düzen
-                {name: 'Saklama Kabı Seti', price: 250, category: 'Mutfak Gereçleri'},
-                {name: 'Baharatlık Seti', price: 180, category: 'Mutfak Gereçleri'},
-                {name: 'Çöp Kovası Pedallı', price: 150, category: 'Temizlik'},
-                {name: 'Mutfak Rafı', price: 350, category: 'Mobilya'},
-                {name: 'Bulaşık Kurutmalık', price: 120, category: 'Mutfak Gereçleri'},
-                
-                // Temizlik
-                {name: 'Mutfak Havlusu (10 adet)', price: 120, category: 'Temizlik'},
-                {name: 'Mutfak Önlüğü (2 adet)', price: 80, category: 'Tekstil'},
-                {name: 'Eldiven Seti', price: 45, category: 'Temizlik'},
-                {name: 'Bulaşık Deterjanı', price: 35, category: 'Temizlik'},
-                {name: 'Mutfak Temizlik Seti', price: 150, category: 'Temizlik'}
-            ];
+      <!-- Odalar -->
+      <section id="roomsContainer" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"></section>
+    </main>
 
-            // Banyo eşyaları
-            const bathroomItems = [
-                {name: 'Duş Kabini', price: 3500, category: 'Banyo'},
-                {name: 'Klozet', price: 1200, category: 'Banyo'},
-                {name: 'Lavabo', price: 800, category: 'Banyo'},
-                {name: 'Banyo Dolabı', price: 2500, category: 'Mobilya'},
-                {name: 'Ayna', price: 450, category: 'Dekorasyon'},
-                {name: 'Duş Başlığı', price: 350, category: 'Banyo'},
-                {name: 'Musluk Seti', price: 650, category: 'Banyo'},
-                {name: 'Havluluk', price: 250, category: 'Banyo'},
-                {name: 'Banyo Havlusu (4 adet)', price: 400, category: 'Tekstil'},
-                {name: 'Yüz Havlusu (6 adet)', price: 180, category: 'Tekstil'},
-                {name: 'Bornoz (2 adet)', price: 350, category: 'Tekstil'},
-                {name: 'Banyo Paspası', price: 120, category: 'Tekstil'},
-                {name: 'Sabunluk', price: 80, category: 'Banyo'},
-                {name: 'Diş Fırçası Kabı', price: 60, category: 'Banyo'},
-                {name: 'Tuvalet Kağıdı Aparatı', price: 100, category: 'Banyo'},
-                {name: 'Çöp Kovası', price: 150, category: 'Temizlik'}
-            ];
+    <template id="roomTemplate">
+      <div class="room-card bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b bg-gray-50">
+          <div class="font-semibold text-lg room-title">Oda</div>
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="text-sm text-gray-600">Toplam: <span class="room-total">₺0</span></span>
+            <button class="icon-btn" data-act="delete-room" title="Odayı sil" aria-label="Odayı sil">🗑️</button>
+          </div>
+        </div>
+        <div class="p-4 flex flex-col gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-2">
+            <input class="inp item-name md:col-span-2" type="text" placeholder="Ürün adı" aria-label="Ürün adı" />
+            <input class="inp item-price md:col-span-1" type="number" step="0.01" min="0" placeholder="Fiyat" aria-label="Ürün fiyatı" />
+            <select class="inp item-category md:col-span-2 select-wide" aria-label="Kategori seç">
+              <option>Mobilya</option>
+              <option>Beyaz Eşya</option>
+              <option>Tekstil</option>
+              <option>Elektronik</option>
+              <option>Mutfak Gereçleri</option>
+              <option>Temizlik</option>
+              <option>Dekorasyon</option>
+              <option>Güvenlik</option>
+              <option>Aydınlatma</option>
+              <option>Banyo</option>
+              <option>Çocuk</option>
+              <option>Araç Gereç</option>
+            </select>
+            <button class="btn md:col-span-1" data-act="add-item" aria-label="Ürün ekle">Ekle</button>
+            <button class="btn-subtle md:col-span-1" data-act="clear-inputs" aria-label="Alanları temizle">Temizle</button>
+          </div>
 
-            // Çocuk Odası eşyaları
-            const childRoomItems = [
-                {name: 'Çocuk Yatağı', price: 3500, category: 'Çocuk'},
-                {name: 'Çocuk Yatak', price: 2200, category: 'Çocuk'},
-                {name: 'Çalışma Masası', price: 1800, category: 'Çocuk'},
-                {name: 'Çalışma Sandalyesi', price: 650, category: 'Çocuk'},
-                {name: 'Oyuncak Dolabı', price: 2500, category: 'Çocuk'},
-                {name: 'Kitaplık', price: 1200, category: 'Mobilya'},
-                {name: 'Çocuk Halısı', price: 800, category: 'Tekstil'},
-                {name: 'Perde', price: 650, category: 'Tekstil'},
-                {name: 'Gece Lambası', price: 250, category: 'Aydınlatma'},
-                {name: 'Çocuk Nevresim', price: 300, category: 'Tekstil'},
-                {name: 'Oyuncak Kutusu', price: 450, category: 'Çocuk'},
-                {name: 'Duvar Stickeri', price: 150, category: 'Dekorasyon'}
-            ];
+          <ul class="divide-y" data-role="item-list"></ul>
+        </div>
+      </div>
+    </template>
 
-            // Genel eşyalar
-            const generalItems = [
-                // Beyaz Eşya
-                {name: 'Çamaşır Makinesi 9kg', price: 8500, category: 'Beyaz Eşya'},
-                {name: 'Kurutma Makinesi 8kg', price: 6500, category: 'Beyaz Eşya'},
-                {name: 'Kombi Çamaşır+Kurutma', price: 12000, category: 'Beyaz Eşya'},
-                
-                // Temizlik Aletleri
-                {name: 'Elektrikli Süpürge', price: 1200, category: 'Temizlik'},
-                {name: 'Robot Süpürge', price: 3500, category: 'Elektronik'},
-                {name: 'Buharlı Temizlik Makinesi', price: 850, category: 'Temizlik'},
-                {name: 'Halı Yıkama Makinesi', price: 1500, category: 'Temizlik'},
-                {name: 'Ütü Buhar Jeneratörlü', price: 450, category: 'Beyaz Eşya'},
-                {name: 'Ütü Masası', price: 350, category: 'Mobilya'},
-                {name: 'Çamaşır Sepeti (3 adet)', price: 180, category: 'Temizlik'},
-                {name: 'Çamaşır İpi', price: 80, category: 'Temizlik'},
-                {name: 'Mandal Seti', price: 50, category: 'Temizlik'},
-                {name: 'Çamaşır Askılığı', price: 120, category: 'Temizlik'},
-                
-                // Güvenlik
-                {name: 'Yangın Söndürücü', price: 350, category: 'Güvenlik'},
-                {name: 'Duman Dedektörü', price: 180, category: 'Güvenlik'},
-                {name: 'Güvenlik Kamerası Seti', price: 1200, category: 'Güvenlik'},
-                {name: 'Kapı Zili Görüntülü', price: 450, category: 'Güvenlik'},
-                {name: 'İlk Yardım Çantası', price: 200, category: 'Güvenlik'},
-                {name: 'Ev Alarm Sistemi', price: 800, category: 'Güvenlik'},
-                
-                // Teknoloji
-                {name: 'Modem/Router Wifi6', price: 450, category: 'Elektronik'},
-                {name: 'Akıllı TV Box', price: 350, category: 'Elektronik'},
-                {name: 'Ev Telefonu Telsiz', price: 250, category: 'Elektronik'},
-                {name: 'Powerbank 20000mAh', price: 180, category: 'Elektronik'},
-                {name: 'Çoklu Priz Akıllı', price: 150, category: 'Elektronik'},
-                {name: 'Uzatma Kablosu (5m)', price: 80, category: 'Elektronik'},
-                {name: 'HDMI Kablo Seti', price: 120, category: 'Elektronik'},
-                {name: 'USB Şarj Kablosu Seti', price: 100, category: 'Elektronik'},
-                
-                // Aydınlatma
-                {name: 'LED Ampul Seti (20 adet)', price: 200, category: 'Aydınlatma'},
-                {name: 'Akıllı Ampul Seti', price: 450, category: 'Aydınlatma'},
-                {name: 'Şarjlı El Feneri', price: 80, category: 'Aydınlatma'},
-                {name: 'Acil Durum Lambası', price: 120, category: 'Aydınlatma'},
-                
-                // Araç Gereçler
-                {name: 'Matkap Seti', price: 800, category: 'Araç Gereç'},
-                {name: 'Tornavida Seti', price: 150, category: 'Araç Gereç'},
-                {name: 'Çekiç Seti', price: 120, category: 'Araç Gereç'},
-                {name: 'Anahtar Seti', price: 80, category: 'Araç Gereç'},
-                {name: 'Merdiven Alüminyum', price: 350, category: 'Araç Gereç'},
-                {name: 'Tabure', price: 120, category: 'Mobilya'},
-                {name: 'Araç Kutusu', price: 180, category: 'Araç Gereç'},
-                
-                // Temizlik Malzemeleri
-                {name: 'Çamaşır Deterjanı (5kg)', price: 150, category: 'Temizlik'},
-                {name: 'Yumuşatıcı (3L)', price: 80, category: 'Temizlik'},
-                {name: 'Çamaşır Suyu (2L)', price: 45, category: 'Temizlik'},
-                {name: 'Genel Temizlik Seti', price: 200, category: 'Temizlik'},
-                {name: 'Cam Temizleyici', price: 35, category: 'Temizlik'},
-                {name: 'Banyo Temizleyici', price: 40, category: 'Temizlik'},
-                {name: 'Mutfak Temizleyici', price: 35, category: 'Temizlik'},
-                {name: 'Yer Temizleyici', price: 50, category: 'Temizlik'},
-                {name: 'Dezenfektan Seti', price: 80, category: 'Temizlik'},
-                {name: 'Mikrofiber Bez (10 adet)', price: 60, category: 'Temizlik'},
-                {name: 'Sünger Seti', price: 40, category: 'Temizlik'},
-                {name: 'Çöp Poşeti (100 adet)', price: 35, category: 'Temizlik'},
-                
-                // Kırtasiye ve Ofis
-                {name: 'Dosya Dolabı', price: 450, category: 'Mobilya'},
-                {name: 'Kırtasiye Seti', price: 120, category: 'Elektronik'},
-                {name: 'Yazıcı Ev Tipi', price: 800, category: 'Elektronik'},
-                {name: 'Kağıt A4 (5 paket)', price: 100, category: 'Elektronik'},
-                
-                // Diğer
-                {name: 'Çiçek Saksıları (10 adet)', price: 200, category: 'Dekorasyon'},
-                {name: 'Bahçe Hortumu', price: 150, category: 'Araç Gereç'},
-                {name: 'Sulama Sistemi', price: 300, category: 'Araç Gereç'},
-                {name: 'Posta Kutusu', price: 180, category: 'Dekorasyon'},
-                {name: 'Kapı Paspası (3 adet)', price: 120, category: 'Tekstil'}
-            ];
+    <template id="itemTemplate">
+      <li class="py-2 flex items-start justify-between gap-3">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <input type="checkbox" class="chk-purchased" aria-label="Satın alındı olarak işaretle" />
+            <span class="font-medium item-name-text break-words"></span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 item-category-text whitespace-nowrap"></span>
+          </div>
+          <div class="text-sm text-gray-600 mt-0.5">
+            <span class="item-price-text">₺0</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button class="icon-btn" data-act="edit-item" title="Düzenle" aria-label="Ürünü düzenle">✏️</button>
+          <button class="icon-btn" data-act="delete-item" title="Sil" aria-label="Ürünü sil">🗑️</button>
+        </div>
+      </li>
+    </template>
 
-            // Eşyaları ilgili odalara ekle
-            const roomMapping = {
-                'Yatak Odası': bedroomItems,
-                'Oturma Odası': livingRoomItems,
-                'Mutfak': kitchenItems,
-                'Banyo': bathroomItems,
-                'Çocuk Odası': childRoomItems,
-                'Genel': generalItems
-            };
+    <!-- Export libs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.20.2/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
-            Object.keys(rooms).forEach(roomId => {
-                const roomName = rooms[roomId].name;
-                const items = roomMapping[roomName];
-                
-                if (items) {
-                    items.forEach(item => {
-                        const itemId = `${roomId}_item_${Date.now()}_${Math.random()}`;
-                        rooms[roomId].items.push({
-                            id: itemId,
-                            name: item.name,
-                            price: item.price,
-                            category: item.category,
-                            purchased: false
-                        });
-                    });
-                    renderRoomItems(roomId);
-                }
-            });
-            
-            updateTotals();
-            updateRoomFilter();
-        }
-
-        function createRoom(roomName) {
-            const roomId = `room_${roomCounter++}`;
-            rooms[roomId] = {
-                name: roomName,
-                items: [],
-                total: 0
-            };
-
-            const roomsContainer = document.getElementById('roomsContainer');
-            const roomDiv = document.createElement('div');
-            roomDiv.className = 'room-card bg-white rounded-xl shadow-lg overflow-hidden';
-            roomDiv.id = roomId;
-
-            roomDiv.innerHTML = `
-                <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4">
-                    <div class="flex justify-between items-center">
-                        <h3 class="text-xl font-semibold">${roomName}</h3>
-                        <div class="flex items-center gap-4">
-                            <div class="text-right">
-                                <div class="text-lg font-bold" id="${roomId}_total">₺0</div>
-                                <div class="text-sm opacity-90" id="${roomId}_count">0 ürün</div>
-                            </div>
-                            <button onclick="deleteRoom('${roomId}')" 
-                                    class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm transition-colors">
-                                Sil
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="p-6">
-                    <!-- Ürün Ekleme Formu -->
-                    <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-                        <h4 class="font-medium text-gray-800 mb-3">Yeni Ürün Ekle</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <input type="text" id="${roomId}_itemName" placeholder="Ürün adı" 
-                                   class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            <input type="number" id="${roomId}_itemPrice" placeholder="Fiyat (₺)" min="0" step="0.01"
-                                   class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            <button onclick="addItem('${roomId}')" 
-                                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                                Ekle
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Ürünler Listesi -->
-                    <div id="${roomId}_items" class="space-y-2">
-                        <div class="text-gray-500 text-center py-4">Henüz ürün eklenmemiş</div>
-                    </div>
-                </div>
-            `;
-
-            roomsContainer.appendChild(roomDiv);
-            updateRoomFilter();
-        }
-
-        function addRoom() {
-            const roomNameInput = document.getElementById('newRoomName');
-            const roomName = roomNameInput.value.trim();
-            
-            if (roomName) {
-                createRoom(roomName);
-                roomNameInput.value = '';
-            }
-        }
-
-        function addItem(roomId) {
-            const itemNameInput = document.getElementById(`${roomId}_itemName`);
-            const itemPriceInput = document.getElementById(`${roomId}_itemPrice`);
-            
-            const itemName = itemNameInput.value.trim();
-            const itemPrice = parseFloat(itemPriceInput.value) || 0;
-            
-            if (itemName) {
-                const itemId = `${roomId}_item_${Date.now()}`;
-                const item = {
-                    id: itemId,
-                    name: itemName,
-                    price: itemPrice,
-                    category: 'Mobilya', // Varsayılan kategori
-                    purchased: false
-                };
-                
-                rooms[roomId].items.push(item);
-                renderRoomItems(roomId);
-                updateTotals();
-                
-                // Formu temizle
-                itemNameInput.value = '';
-                itemPriceInput.value = '';
-            }
-        }
-
-        function renderRoomItems(roomId) {
-            const itemsContainer = document.getElementById(`${roomId}_items`);
-            const items = rooms[roomId].items;
-            
-            if (items.length === 0) {
-                itemsContainer.innerHTML = '<div class="text-gray-500 text-center py-4">Henüz ürün eklenmemiş</div>';
-                return;
-            }
-            
-            itemsContainer.innerHTML = items.map(item => `
-                <div class="item-row p-4 border border-gray-200 rounded-lg ${item.purchased ? 'bg-green-50 border-green-300' : 'bg-white'} transition-all">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex items-center gap-3">
-                            <input type="checkbox" ${item.purchased ? 'checked' : ''} 
-                                   onchange="togglePurchased('${roomId}', '${item.id}')"
-                                   class="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 mt-1">
-                            <div>
-                                <span class="${item.purchased ? 'line-through text-gray-500' : 'text-gray-800'} font-medium text-lg">
-                                    ${item.name}
-                                </span>
-                                <div class="text-sm text-gray-500 mt-1">
-                                    <span class="bg-gray-100 px-2 py-1 rounded-full text-xs">${item.category || 'Kategori Yok'}</span>
-                                </div>
-                                ${item.purchased ? `<div class="text-sm text-green-600 font-medium">✓ Satın Alındı</div>` : ''}
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="text-xl font-bold ${item.purchased ? 'text-gray-500' : 'text-purple-600'}">
-                                ₺${item.price.toFixed(2)}
-                            </span>
-                            <button onclick="editItem('${roomId}', '${item.id}')" 
-                                    class="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 rounded transition-colors">
-                                ✏️
-                            </button>
-                            <button onclick="deleteItem('${roomId}', '${item.id}')" 
-                                    class="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded transition-colors">
-                                🗑️
-                            </button>
-                        </div>
-                    </div>
-                    
-                    ${item.purchased ? `
-                        <div class="bg-green-100 p-3 rounded-lg border-l-4 border-green-500">
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                                <div><strong>Ödeme:</strong> ${item.paymentMethod || 'Belirtilmemiş'}</div>
-                                <div><strong>Taksit:</strong> ${item.installments || 'Peşin'}</div>
-                                <div><strong>Tarih:</strong> ${item.purchaseDate || 'Belirtilmemiş'}</div>
-                                <div><strong>Mağaza:</strong> ${item.store || 'Belirtilmemiş'}</div>
-                            </div>
-                            ${item.notes ? `<div class="mt-2 text-sm text-gray-600"><strong>Not:</strong> ${item.notes}</div>` : ''}
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
-        }
-
-        function togglePurchased(roomId, itemId) {
-            const item = rooms[roomId].items.find(i => i.id === itemId);
-            if (item) {
-                if (!item.purchased) {
-                    // Satın alma detaylarını sor
-                    showPurchaseModal(roomId, itemId);
-                } else {
-                    // Satın alma işlemini geri al
-                    item.purchased = false;
-                    item.paymentMethod = null;
-                    item.installments = null;
-                    item.purchaseDate = null;
-                    item.store = null;
-                    item.notes = null;
-                    renderRoomItems(roomId);
-                    updateTotals();
-                }
-            }
-        }
-
-        function showPurchaseModal(roomId, itemId) {
-            const item = rooms[roomId].items.find(i => i.id === itemId);
-            const today = new Date().toISOString().split('T')[0];
-            
-            const modal = document.createElement('div');
-            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
-            modal.innerHTML = `
-                <div class="bg-white rounded-xl p-6 max-w-md w-full max-h-96 overflow-y-auto">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Satın Alma Detayları</h3>
-                    <p class="text-gray-600 mb-4"><strong>${item.name}</strong> için satın alma bilgilerini girin:</p>
-                    
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Ödeme Yöntemi</label>
-                            <select id="paymentMethod" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                                <option value="Nakit">💵 Nakit</option>
-                                <option value="Kredi Kartı">💳 Kredi Kartı</option>
-                                <option value="Banka Kartı">🏦 Banka Kartı</option>
-                                <option value="Havale/EFT">📱 Havale/EFT</option>
-                                <option value="Çek">📄 Çek</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Taksit Durumu</label>
-                            <select id="installments" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                                <option value="Peşin">Peşin</option>
-                                <option value="2 Taksit">2 Taksit</option>
-                                <option value="3 Taksit">3 Taksit</option>
-                                <option value="6 Taksit">6 Taksit</option>
-                                <option value="9 Taksit">9 Taksit</option>
-                                <option value="12 Taksit">12 Taksit</option>
-                                <option value="18 Taksit">18 Taksit</option>
-                                <option value="24 Taksit">24 Taksit</option>
-                                <option value="36 Taksit">36 Taksit</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Satın Alma Tarihi</label>
-                            <input type="date" id="purchaseDate" value="${today}" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Mağaza/Satıcı</label>
-                            <input type="text" id="store" placeholder="Örn: İkea, Koçtaş, Vatan Bilgisayar" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Notlar (İsteğe bağlı)</label>
-                            <textarea id="notes" placeholder="Garanti süresi, özel notlar vb." 
-                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 h-20 resize-none"></textarea>
-                        </div>
-                    </div>
-                    
-                    <div class="flex gap-3 mt-6">
-                        <button onclick="savePurchaseDetails('${roomId}', '${itemId}'); document.body.removeChild(this.closest('.fixed'))" 
-                                class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                            Kaydet
-                        </button>
-                        <button onclick="document.body.removeChild(this.closest('.fixed'))" 
-                                class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                            İptal
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-        }
-
-        function savePurchaseDetails(roomId, itemId) {
-            const item = rooms[roomId].items.find(i => i.id === itemId);
-            if (item) {
-                item.purchased = true;
-                item.paymentMethod = document.getElementById('paymentMethod').value;
-                item.installments = document.getElementById('installments').value;
-                item.purchaseDate = document.getElementById('purchaseDate').value;
-                item.store = document.getElementById('store').value;
-                item.notes = document.getElementById('notes').value;
-                
-                renderRoomItems(roomId);
-                updateTotals();
-            }
-        }
-
-        function editItem(roomId, itemId) {
-            const item = rooms[roomId].items.find(i => i.id === itemId);
-            if (!item) return;
-            
-            const modal = document.createElement('div');
-            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
-            modal.innerHTML = `
-                <div class="bg-white rounded-xl p-6 max-w-md w-full">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Ürün Düzenle</h3>
-                    
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Ürün Adı</label>
-                            <input type="text" id="editItemName" value="${item.name}" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Fiyat (₺)</label>
-                            <input type="number" id="editItemPrice" value="${item.price}" min="0" step="0.01"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
-                        </div>
-                    </div>
-                    
-                    <div class="flex gap-3 mt-6">
-                        <button onclick="saveItemEdit('${roomId}', '${itemId}'); document.body.removeChild(this.closest('.fixed'))" 
-                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                            Kaydet
-                        </button>
-                        <button onclick="document.body.removeChild(this.closest('.fixed'))" 
-                                class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                            İptal
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-        }
-
-        function saveItemEdit(roomId, itemId) {
-            const item = rooms[roomId].items.find(i => i.id === itemId);
-            if (item) {
-                item.name = document.getElementById('editItemName').value;
-                item.price = parseFloat(document.getElementById('editItemPrice').value) || 0;
-                
-                renderRoomItems(roomId);
-                updateTotals();
-            }
-        }
-
-        function deleteItem(roomId, itemId) {
-            rooms[roomId].items = rooms[roomId].items.filter(i => i.id !== itemId);
-            renderRoomItems(roomId);
-            updateTotals();
-            updateRoomFilter();
-        }
-
-        function deleteRoom(roomId) {
-            const roomElement = document.getElementById(roomId);
-            if (roomElement && confirm(`"${rooms[roomId].name}" odasını silmek istediğinizden emin misiniz?`)) {
-                roomElement.remove();
-                delete rooms[roomId];
-                updateTotals();
-            }
-        }
-
-        function updateTotals() {
-            let grandTotal = 0;
-            let totalItemCount = 0;
-            
-            Object.keys(rooms).forEach(roomId => {
-                const room = rooms[roomId];
-                let roomTotal = 0;
-                let roomItemCount = room.items.length;
-                
-                room.items.forEach(item => {
-                    roomTotal += item.price;
-                });
-                
-                room.total = roomTotal;
-                grandTotal += roomTotal;
-                totalItemCount += roomItemCount;
-                
-                // Oda toplamlarını güncelle
-                const roomTotalElement = document.getElementById(`${roomId}_total`);
-                const roomCountElement = document.getElementById(`${roomId}_count`);
-                
-                if (roomTotalElement) {
-                    roomTotalElement.textContent = `₺${roomTotal.toFixed(2)}`;
-                }
-                if (roomCountElement) {
-                    roomCountElement.textContent = `${roomItemCount} ürün`;
-                }
-            });
-            
-            // Genel toplamı güncelle
-            document.getElementById('grandTotal').textContent = `₺${grandTotal.toFixed(2)}`;
-            document.getElementById('totalItems').textContent = `${totalItemCount} ürün`;
-        }
-
-        // Filtreleme fonksiyonları
-        function updateRoomFilter() {
-            const roomFilter = document.getElementById('roomFilter');
-            roomFilter.innerHTML = '<option value="">Tüm Odalar</option>';
-            
-            Object.keys(rooms).forEach(roomId => {
-                const option = document.createElement('option');
-                option.value = roomId;
-                option.textContent = rooms[roomId].name;
-                roomFilter.appendChild(option);
-            });
-        }
-
-        function applyFilters() {
-            const roomFilter = document.getElementById('roomFilter').value;
-            const categoryFilter = document.getElementById('categoryFilter').value;
-            const statusFilter = document.getElementById('statusFilter').value;
-            const searchInput = document.getElementById('searchInput').value.toLowerCase();
-
-            Object.keys(rooms).forEach(roomId => {
-                const roomElement = document.getElementById(roomId);
-                let showRoom = true;
-
-                // Oda filtresi
-                if (roomFilter && roomFilter !== roomId) {
-                    showRoom = false;
-                }
-
-                if (showRoom) {
-                    roomElement.style.display = 'block';
-                    
-                    // Ürün filtreleme
-                    const items = rooms[roomId].items;
-                    const filteredItems = items.filter(item => {
-                        let showItem = true;
-
-                        // Kategori filtresi
-                        if (categoryFilter && item.category !== categoryFilter) {
-                            showItem = false;
-                        }
-
-                        // Durum filtresi
-                        if (statusFilter === 'purchased' && !item.purchased) {
-                            showItem = false;
-                        } else if (statusFilter === 'pending' && item.purchased) {
-                            showItem = false;
-                        }
-
-                        // Arama filtresi
-                        if (searchInput && !item.name.toLowerCase().includes(searchInput)) {
-                            showItem = false;
-                        }
-
-                        return showItem;
-                    });
-
-                    // Filtrelenmiş ürünleri göster
-                    renderFilteredItems(roomId, filteredItems);
-                } else {
-                    roomElement.style.display = 'none';
-                }
-            });
-
-            updateFilteredTotals();
-        }
-
-        function renderFilteredItems(roomId, filteredItems) {
-            const itemsContainer = document.getElementById(`${roomId}_items`);
-            
-            if (filteredItems.length === 0) {
-                itemsContainer.innerHTML = '<div class="text-gray-500 text-center py-4">Filtreye uygun ürün bulunamadı</div>';
-                return;
-            }
-            
-            itemsContainer.innerHTML = filteredItems.map(item => `
-                <div class="item-row p-4 border border-gray-200 rounded-lg ${item.purchased ? 'bg-green-50 border-green-300' : 'bg-white'} transition-all">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex items-center gap-3">
-                            <input type="checkbox" ${item.purchased ? 'checked' : ''} 
-                                   onchange="togglePurchased('${roomId}', '${item.id}')"
-                                   class="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 mt-1">
-                            <div>
-                                <span class="${item.purchased ? 'line-through text-gray-500' : 'text-gray-800'} font-medium text-lg">
-                                    ${item.name}
-                                </span>
-                                <div class="text-sm text-gray-500 mt-1">
-                                    <span class="bg-gray-100 px-2 py-1 rounded-full text-xs">${item.category}</span>
-                                </div>
-                                ${item.purchased ? `<div class="text-sm text-green-600 font-medium">✓ Satın Alındı</div>` : ''}
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="text-xl font-bold ${item.purchased ? 'text-gray-500' : 'text-purple-600'}">
-                                ₺${item.price.toFixed(2)}
-                            </span>
-                            <button onclick="editItem('${roomId}', '${item.id}')" 
-                                    class="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 rounded transition-colors">
-                                ✏️
-                            </button>
-                            <button onclick="deleteItem('${roomId}', '${item.id}')" 
-                                    class="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded transition-colors">
-                                🗑️
-                            </button>
-                        </div>
-                    </div>
-                    
-                    ${item.purchased ? `
-                        <div class="bg-green-100 p-3 rounded-lg border-l-4 border-green-500">
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                                <div><strong>Ödeme:</strong> ${item.paymentMethod || 'Belirtilmemiş'}</div>
-                                <div><strong>Taksit:</strong> ${item.installments || 'Peşin'}</div>
-                                <div><strong>Tarih:</strong> ${item.purchaseDate || 'Belirtilmemiş'}</div>
-                                <div><strong>Mağaza:</strong> ${item.store || 'Belirtilmemiş'}</div>
-                            </div>
-                            ${item.notes ? `<div class="mt-2 text-sm text-gray-600"><strong>Not:</strong> ${item.notes}</div>` : ''}
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
-        }
-
-        function updateFilteredTotals() {
-            const roomFilter = document.getElementById('roomFilter').value;
-            const categoryFilter = document.getElementById('categoryFilter').value;
-            const statusFilter = document.getElementById('statusFilter').value;
-            const searchInput = document.getElementById('searchInput').value.toLowerCase();
-
-            let filteredTotal = 0;
-            let filteredItemCount = 0;
-
-            Object.keys(rooms).forEach(roomId => {
-                // Oda filtresi kontrolü
-                if (roomFilter && roomFilter !== roomId) {
-                    return;
-                }
-
-                const room = rooms[roomId];
-                let roomTotal = 0;
-                let roomItemCount = 0;
-
-                room.items.forEach(item => {
-                    let includeItem = true;
-
-                    // Kategori filtresi
-                    if (categoryFilter && item.category !== categoryFilter) {
-                        includeItem = false;
-                    }
-
-                    // Durum filtresi
-                    if (statusFilter === 'purchased' && !item.purchased) {
-                        includeItem = false;
-                    } else if (statusFilter === 'pending' && item.purchased) {
-                        includeItem = false;
-                    }
-
-                    // Arama filtresi
-                    if (searchInput && !item.name.toLowerCase().includes(searchInput)) {
-                        includeItem = false;
-                    }
-
-                    if (includeItem) {
-                        roomTotal += item.price;
-                        roomItemCount++;
-                    }
-                });
-
-                filteredTotal += roomTotal;
-                filteredItemCount += roomItemCount;
-
-                // Oda toplamlarını güncelle
-                const roomTotalElement = document.getElementById(`${roomId}_total`);
-                const roomCountElement = document.getElementById(`${roomId}_count`);
-                
-                if (roomTotalElement) {
-                    roomTotalElement.textContent = `₺${roomTotal.toFixed(2)}`;
-                }
-                if (roomCountElement) {
-                    roomCountElement.textContent = `${roomItemCount} ürün`;
-                }
-            });
-
-            // Genel toplamı güncelle
-            document.getElementById('grandTotal').textContent = `₺${filteredTotal.toFixed(2)}`;
-            document.getElementById('totalItems').textContent = `${filteredItemCount} ürün`;
-        }
-
-        function clearFilters() {
-            document.getElementById('roomFilter').value = '';
-            document.getElementById('categoryFilter').value = '';
-            document.getElementById('statusFilter').value = '';
-            document.getElementById('searchInput').value = '';
-            
-            // Tüm odaları göster ve normal render'ı çağır
-            Object.keys(rooms).forEach(roomId => {
-                document.getElementById(roomId).style.display = 'block';
-                renderRoomItems(roomId);
-            });
-            
-            updateTotals();
-            updateRoomFilter();
-        }
-
-        // Enter tuşu ile ürün ekleme
-        document.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                const target = e.target;
-                if (target.id.includes('_itemName') || target.id.includes('_itemPrice')) {
-                    const roomId = target.id.split('_')[0] + '_' + target.id.split('_')[1];
-                    addItem(roomId);
-                } else if (target.id === 'newRoomName') {
-                    addRoom();
-                }
-            }
-        });
-    </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99696f6622547fc6',t:'MTc2MTgxMTgxNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+    <!-- App JS (modüler) -->
+    <script type="module" src="script.js"></script>
+  </body>
 </html>
