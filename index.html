@@ -4,30 +4,23 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Evlilik Listesi</title>
-
-    <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Özel stiller -->
     <link rel="stylesheet" href="style.css" />
   </head>
   <body class="bg-gray-50 text-gray-900">
     <header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b">
       <div class="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <h1 class="text-xl md:text-2xl font-bold" role="heading" aria-level="1">Evlilik Listesi</h1>
-        <div class="flex flex-wrap items-center gap-2 md:gap-3">
-          <!-- Oturum açıkken gözükecek kutu -->
-          <div id="userBox" class="hidden flex flex-wrap items-center gap-2 md:gap-3">
-            <span id="userEmail" class="text-sm text-gray-600 truncate max-w-[220px] md:max-w-none"></span>
-            <button id="exportXlsxBtn" class="btn-subtle" aria-label="Excel olarak dışa aktar">Excel (XLSX)</button>
-            <button id="exportPdfBtn" class="btn-subtle" aria-label="PDF olarak dışa çıkar">PDF</button>
-            <button id="signOutBtn" class="btn-subtle">Çıkış</button>
-          </div>
+        <h1 class="text-xl md:text-2xl font-bold">Evlilik Listesi</h1>
+        <div id="userBox" class="hidden flex flex-wrap items-center gap-2 md:gap-3">
+          <span id="userEmail" class="text-sm text-gray-600 truncate max-w-[220px] md:max-w-none"></span>
+          <button id="exportXlsxBtn" class="btn-subtle">Excel (XLSX)</button>
+          <button id="exportPdfBtn" class="btn-subtle">PDF</button>
+          <button id="signOutBtn" class="btn-subtle">Çıkış</button>
         </div>
       </div>
     </header>
 
-    <!-- AUTH SECTION (giriş/kayıt/sıfırla) -->
+    <!-- AUTH -->
     <section id="authSection" class="max-w-md mx-auto mt-8 px-4">
       <div class="card">
         <h2 class="text-xl font-semibold mb-4">Giriş Yap</h2>
@@ -37,8 +30,7 @@
           <button id="signInBtn" class="btn w-full">Giriş Yap</button>
           <button id="googleBtn" class="btn-subtle w-full">Google ile devam et</button>
           <div class="text-sm text-gray-600 flex flex-wrap gap-2 mt-2">
-            <button id="toRegister" class="underline">Hesabın yok mu? Kayıt ol</button>
-            <span>•</span>
+            <button id="toRegister" class="underline">Hesabın yok mu? Kayıt ol</button><span>•</span>
             <button id="toReset" class="underline">Şifremi unuttum</button>
           </div>
         </div>
@@ -47,12 +39,10 @@
       <div id="registerCard" class="card mt-6 hidden">
         <h2 class="text-xl font-semibold mb-4">Kayıt Ol</h2>
         <div class="grid gap-3">
-          <input id="regEmail" type="email" class="inp" placeholder="E-posta" autocomplete="username" />
-          <input id="regPassword" type="password" class="inp" placeholder="Şifre (min 6)" autocomplete="new-password" />
+          <input id="regEmail" type="email" class="inp" placeholder="E-posta" />
+          <input id="regPassword" type="password" class="inp" placeholder="Şifre (min 6)" />
           <button id="registerBtn" class="btn w-full">Kayıt Ol</button>
-          <div class="text-sm text-gray-600 flex flex-wrap gap-2 mt-2">
-            <button id="backToLogin1" class="underline">Giriş ekranına dön</button>
-          </div>
+          <div class="text-sm text-gray-600"><button id="backToLogin1" class="underline">Giriş ekranına dön</button></div>
         </div>
       </div>
 
@@ -61,102 +51,67 @@
         <div class="grid gap-3">
           <input id="resetEmail" type="email" class="inp" placeholder="E-posta" />
           <button id="resetBtn" class="btn w-full">Sıfırlama Bağlantısı Gönder</button>
-          <div class="text-sm text-gray-600 flex flex-wrap gap-2 mt-2">
-            <button id="backToLogin2" class="underline">Giriş ekranına dön</button>
-          </div>
+          <div class="text-sm text-gray-600"><button id="backToLogin2" class="underline">Giriş ekranına dön</button></div>
         </div>
       </div>
     </section>
 
-    <!-- APP SECTION (oturum olmadan gizli) -->
+    <!-- APP -->
     <main id="appShell" class="hidden max-w-6xl mx-auto px-4 py-6 flex flex-col gap-6">
-      <!-- Özet kutuları -->
       <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="card">
-          <div class="text-gray-500 text-sm">Toplam Bütçe</div>
-          <div id="grandTotal" class="text-2xl font-semibold">₺0</div>
+        <div class="card"><div class="text-gray-500 text-sm">Toplam Bütçe</div><div id="grandTotal" class="text-2xl font-semibold">₺0</div>
           <div id="filterSummary" class="text-right text-sm text-gray-600 mt-1 hidden">
-            <span>Filtrelenenler toplamı: <span id="filteredTotalTL">₺0</span></span>
-            <span class="mx-1">•</span>
-            <span id="filteredCount">0 ürün</span>
+            <span>Filtrelenenler toplamı: <span id="filteredTotalTL">₺0</span></span><span class="mx-1">•</span><span id="filteredCount">0 ürün</span>
           </div>
         </div>
-        <div class="card">
-          <div class="text-gray-500 text-sm">Ürün Sayısı</div>
-          <div id="grandCount" class="text-2xl font-semibold">0</div>
-        </div>
-        <div class="card">
-          <div class="text-gray-500 text-sm">Satın Alınanlar</div>
-          <div id="purchasedStats" class="text-2xl font-semibold">0 / 0</div>
-        </div>
+        <div class="card"><div class="text-gray-500 text-sm">Ürün Sayısı</div><div id="grandCount" class="text-2xl font-semibold">0</div></div>
+        <div class="card"><div class="text-gray-500 text-sm">Satın Alınanlar</div><div id="purchasedStats" class="text-2xl font-semibold">0 / 0</div></div>
       </section>
 
-      <!-- Ekleme ve filtreler -->
       <section class="card p-4">
         <div class="grid gap-4">
           <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
-            <input id="newRoomName" type="text" placeholder="Yeni oda adı" class="inp md:col-span-4" />
-            <button id="addRoomBtn" class="btn md:col-span-2">Oda Ekle</button>
+            <input id="newRoomName" type="text" placeholder="Yeni başlık (Tanım)" class="inp md:col-span-4" />
+            <button id="addRoomBtn" class="btn md:col-span-2">Başlık Ekle</button>
           </div>
 
           <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <select id="roomFilter" class="inp select-wide" aria-label="Oda filtresi">
-              <option value="">Tüm Odalar</option>
-            </select>
-            <select id="categoryFilter" class="inp select-wide" aria-label="Kategori filtresi">
-              <option value="">Tüm Kategoriler</option>
-            </select>
+            <select id="sectionFilter" class="inp select-wide" aria-label="Başlık filtresi"><option value="">Tüm Başlıklar</option></select>
+            <select id="subFilter" class="inp select-wide" aria-label="Ara başlık filtresi"><option value="">Tüm Ara Başlıklar</option></select>
             <select id="statusFilter" class="inp select-wide" aria-label="Durum filtresi">
-              <option value="">Durum: Hepsi</option>
-              <option value="purchased">Satın alınanlar</option>
-              <option value="not">Satın alınmayanlar</option>
+              <option value="">Durum: Hepsi</option><option value="purchased">Satın alınanlar</option><option value="not">Satın alınmayanlar</option>
             </select>
-            <input id="searchInput" type="search" placeholder="Ara: ürün adı" class="inp" aria-label="Ürün adı ara" />
+            <input id="searchInput" type="search" class="inp" placeholder="Ara: ürün adı" />
           </div>
         </div>
       </section>
 
-      <!-- Odalar: TEK sütun tam genişlik -->
-      <section id="roomsContainer" class="grid grid-cols-1 gap-6"></section>
+      <!-- Başlıklar (Tanım): TEK sütun tam genişlik -->
+      <section id="sectionsContainer" class="grid grid-cols-1 gap-6"></section>
     </main>
 
     <template id="roomTemplate">
       <div class="room-card bg-white rounded-xl shadow-lg overflow-hidden">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b bg-gray-50">
-          <div class="font-semibold text-lg room-title">Oda</div>
+          <div class="font-semibold text-lg room-title">Başlık</div>
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-sm text-gray-600">Toplam: <span class="room-total">₺0</span></span>
-            <button class="icon-btn" data-act="delete-room" title="Odayı sil" aria-label="Odayı sil">🗑️</button>
+            <button class="icon-btn" data-act="delete-room" title="Başlığı sil" aria-label="Başlığı sil">🗑️</button>
           </div>
         </div>
         <div class="p-4 flex flex-col gap-3">
           <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
-            <input class="inp item-name md:col-span-4" type="text" placeholder="Ürün adı" aria-label="Ürün adı" />
-            <input class="inp item-price md:col-span-2" type="number" step="0.01" min="0" placeholder="Peşin Fiyat" aria-label="Peşin fiyat" />
-            <select class="inp item-category md:col-span-3 select-wide" aria-label="Kategori seç">
-              <option>Mobilya</option>
-              <option>Beyaz Eşya</option>
-              <option>Tekstil</option>
-              <option>Elektronik</option>
-              <option>Mutfak Gereçleri</option>
-              <option>Temizlik</option>
-              <option>Dekorasyon</option>
-              <option>Güvenlik</option>
-              <option>Aydınlatma</option>
-              <option>Banyo</option>
-              <option>Çocuk</option>
-              <option>Araç Gereç</option>
+            <input class="inp item-name md:col-span-4" type="text" placeholder="Ürün adı" />
+            <input class="inp item-price md:col-span-2" type="number" step="0.01" min="0" placeholder="Peşin Fiyat" />
+            <input class="inp item-sub md:col-span-3" type="text" placeholder="Ara başlık (opsiyonel)" />
+            <select class="inp item-payment md:col-span-2">
+              <option value="Peşin">Peşin</option><option value="Taksitli">Taksitli</option>
             </select>
-            <select class="inp item-payment md:col-span-2" aria-label="Ödeme tipi">
-              <option value="Peşin">Peşin</option>
-              <option value="Taksitli">Taksitli</option>
-            </select>
-            <input class="inp item-installments md:col-span-2 hidden" type="number" min="2" step="1" placeholder="Taksit" aria-label="Taksit sayısı" />
-            <input class="inp item-installment-total md:col-span-2 hidden" type="number" step="0.01" min="0" placeholder="Taksitli Toplam" aria-label="Taksitli toplam" />
-            <button class="btn md:col-span-1" data-act="add-item" aria-label="Ürün ekle">Ekle</button>
-            <button class="btn-subtle md:col-span-1" data-act="clear-inputs" aria-label="Alanları temizle">Temizle</button>
+            <input class="inp item-installments md:col-span-2 hidden" type="number" min="2" step="1" placeholder="Taksit" />
+            <input class="inp item-installment-total md:col-span-2 hidden" type="number" step="0.01" min="0" placeholder="Taksitli Toplam" />
+            <button class="btn md:col-span-1" data-act="add-item">Ekle</button>
+            <button class="btn-subtle md:col-span-1" data-act="clear-inputs">Temizle</button>
           </div>
-
           <ul class="divide-y" data-role="item-list"></ul>
         </div>
       </div>
@@ -166,9 +121,9 @@
       <li class="py-2 flex items-start justify-between gap-3">
         <div class="flex-1 min-w-0">
           <div class="flex flex-wrap items-center gap-2">
-            <input type="checkbox" class="chk-purchased" aria-label="Satın alındı olarak işaretle" />
+            <input type="checkbox" class="chk-purchased" />
             <span class="font-medium item-name-text break-words"></span>
-            <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 item-category-text whitespace-nowrap"></span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 item-sub-text whitespace-nowrap"></span>
             <span class="text-xs px-2 py-0.5 rounded-full payment-badge whitespace-nowrap"></span>
           </div>
           <div class="text-sm text-gray-600 mt-0.5 space-x-2">
@@ -177,19 +132,15 @@
           </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <button class="icon-btn" data-act="edit-item" title="Düzenle" aria-label="Ürünü düzenle">✏️</button>
-          <button class="icon-btn" data-act="delete-item" title="Sil" aria-label="Ürünü sil">🗑️</button>
+          <button class="icon-btn" data-act="edit-item" title="Düzenle">✏️</button>
+          <button class="icon-btn" data-act="delete-item" title="Sil">🗑️</button>
         </div>
       </li>
     </template>
 
-    <!-- Export libs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.20.2/xlsx.full.min.js"></script>
-    <!-- pdfmake (Unicode destekli) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
-
-    <!-- App JS (modüler) -->
     <script type="module" src="script.js"></script>
   </body>
 </html>
