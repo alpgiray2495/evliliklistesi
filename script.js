@@ -1,7 +1,7 @@
-/* Başlık (Tanım) + Ara başlık serbest, XLSX + pdfmake */
+/* Inline edit + Drag&Drop reorder/move (Başlık & Ara başlık) */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js';
-import { getFirestore, collection, doc, addDoc, setDoc, getDocs, deleteDoc, updateDoc, onSnapshot, query, orderBy, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js';
+import { getFirestore, collection, doc, addDoc, setDoc, getDocs, deleteDoc, updateDoc, onSnapshot, query, serverTimestamp, writeBatch } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const app = initializeApp(firebaseConfig);
@@ -41,6 +41,7 @@ const $exportXlsxBtn = document.getElementById('exportXlsxBtn');
 const $exportPdfBtn = document.getElementById('exportPdfBtn');
 
 const state = { uid:null, rooms:{}, unsubRooms:null, unsubItems:{} };
+let dragInfo = null; // {roomId, itemId, sourceIndex}
 
 function showLogin(){ $authSection.classList.remove('hidden'); $appShell.classList.add('hidden'); $userBox.classList.add('hidden'); }
 function showApp(user){ $userEmail.textContent = user.email||'(Google)'; $userBox.classList.remove('hidden'); $authSection.classList.add('hidden'); $appShell.classList.remove('hidden'); }
@@ -67,30 +68,60 @@ function cleanup(){ if(state.unsubRooms){ state.unsubRooms(); state.unsubRooms=n
 function initRealtime(uid){
   setDoc(doc(db,'users',uid), {createdAt: serverTimestamp()}, {merge:true});
   const roomsCol = collection(db,'users',uid,'rooms');
-  const qRooms = query(roomsCol, orderBy('createdAt','asc'));
-  state.unsubRooms = onSnapshot(qRooms, (snap)=>{
-    snap.docChanges().forEach(ch=>{
-      const id=ch.doc.id;
-      if(ch.type==='added'){ state.rooms[id]={name:ch.doc.data().name, items:[]}; mountRoom(id, ch.doc.data().name); subscribeItems(uid,id); }
-      else if(ch.type==='modified'){ const el=document.getElementById(id); if(el) el.querySelector('.room-title').textContent=ch.doc.data().name; state.rooms[id].name=ch.doc.data().name; }
-      else if(ch.type==='removed'){ if(state.unsubItems[id]){state.unsubItems[id](); delete state.unsubItems[id];} delete state.rooms[id]; document.getElementById(id)?.remove(); }
+  state.unsubRooms = onSnapshot(roomsCol, (snap)=>{
+    const seen = new Set();
+    snap.forEach(d=>{
+      const id=d.id, data=d.data();
+      seen.add(id);
+      if(!state.rooms[id]){ state.rooms[id]={name:data.name, items:[]}; mountRoom(id, data.name); subscribeItems(uid,id); }
+      else { state.rooms[id].name=data.name; const el=document.getElementById(id); if(el) el.querySelector('.room-title').textContent=data.name; }
     });
+    // removed rooms
+    Object.keys(state.rooms).forEach(id=>{ if(!seen.has(id)){ if(state.unsubItems[id]){state.unsubItems[id](); delete state.unsubItems[id];} delete state.rooms[id]; document.getElementById(id)?.remove(); }});
     updateSectionFilter(); updateTotals();
   });
 }
 
 function subscribeItems(uid, roomId){
-  const qItems = query(collection(db,'users',uid,'rooms',roomId,'items'), orderBy('createdAt','asc'));
-  state.unsubItems[roomId] = onSnapshot(qItems,(snap)=>{
+  const itemsCol = collection(db,'users',uid,'rooms',roomId,'items');
+  state.unsubItems[roomId] = onSnapshot(itemsCol,(snap)=>{
     const list=[]; snap.forEach(d=>list.push({id:d.id, ...d.data()}));
+    // sort by order if present, else by createdAt seconds
+    list.sort((a,b)=>{
+      const ao = (typeof a.order==='number')?a.order:(a.createdAt?.seconds||0);
+      const bo = (typeof b.order==='number')?b.order:(b.createdAt?.seconds||0);
+      return ao - bo;
+    });
     state.rooms[roomId].items=list; renderRoomItems(roomId); updateTotals(); updateSubFilterOptions(); applyFilters();
   });
 }
 
 function mountRoom(roomId, roomName){
   const node=$roomTemplate.content.cloneNode(true);
-  const root=node.querySelector('.room-card'); root.id=roomId; root.querySelector('.room-title').textContent=roomName;
+  const root=node.querySelector('.room-card'); root.id=roomId; 
+  const titleEl = root.querySelector('.room-title');
+  titleEl.textContent=roomName;
+  titleEl.contentEditable = "true";
+  titleEl.spellcheck = false;
+  titleEl.addEventListener('blur', async ()=>{
+    const newName = titleEl.textContent.trim() || 'Başlık';
+    await setDoc(doc(db,'users',state.uid,'rooms',roomId), {name:newName}, {merge:true});
+  });
 
+  // Add DnD handlers to list
+  const list=root.querySelector('[data-role="item-list"]');
+  list.addEventListener('dragover', (e)=>{ e.preventDefault(); list.classList.add('dnd-hover'); });
+  list.addEventListener('dragleave', ()=> list.classList.remove('dnd-hover'));
+  list.addEventListener('drop', async (e)=>{
+    e.preventDefault(); list.classList.remove('dnd-hover');
+    if(!dragInfo) return;
+    const targetRoomId = roomId;
+    const afterId = e.target.closest('li')?.dataset.id || null;
+    await handleDrop(dragInfo.roomId, targetRoomId, dragInfo.itemId, afterId);
+    dragInfo = null;
+  });
+
+  // Form logic
   root.addEventListener('change',(e)=>{
     if(e.target.classList.contains('item-payment')){
       const isInst = e.target.value==='Taksitli';
@@ -116,17 +147,6 @@ function mountRoom(roomId, roomName){
     if(act==='delete-room') await deleteRoom(roomId);
   });
 
-  root.addEventListener('change', async (e)=>{
-    if(e.target.classList.contains('chk-purchased')){
-      const li=e.target.closest('li'); await togglePurchased(roomId, li.dataset.id, e.target.checked);
-    }
-  });
-  root.addEventListener('click', async (e)=>{
-    const b=e.target.closest('[data-act]'); if(!b) return; const act=b.getAttribute('data-act');
-    if(act==='edit-item'){ const li=b.closest('li'); await editItem(roomId, li.dataset.id); }
-    if(act==='delete-item'){ const li=b.closest('li'); await deleteItem(roomId, li.dataset.id); }
-  });
-
   $sectionsContainer.appendChild(node);
 }
 
@@ -135,19 +155,79 @@ function effectivePrice(it){ return it.paymentType==='Taksitli' ? (Number(it.ins
 function renderRoomItems(roomId){
   const room=state.rooms[roomId]; const root=document.getElementById(roomId);
   const list=root.querySelector('[data-role="item-list"]'); list.innerHTML='';
-  room.items.forEach(item=>{
-    const node=$itemTemplate.content.cloneNode(true); const li=node.querySelector('li'); li.dataset.id=item.id; li.classList.toggle('purchased', !!item.purchased);
-    node.querySelector('.item-name-text').textContent=item.name;
-    node.querySelector('.item-sub-text').textContent=item.sub||'';
+  room.items.forEach((item, idx)=>{
+    const node=$itemTemplate.content.cloneNode(true); const li=node.querySelector('li'); 
+    li.dataset.id=item.id; 
+    li.classList.toggle('purchased', !!item.purchased);
+    li.draggable = true;
+    li.addEventListener('dragstart', ()=>{ dragInfo = {roomId, itemId:item.id, sourceIndex: idx}; });
+    li.addEventListener('dragend', ()=>{ dragInfo = null; });
+
+    // Inline editable fields
+    const nameEl = node.querySelector('.item-name-text');
+    nameEl.textContent=item.name;
+    nameEl.contentEditable = "true";
+    nameEl.spellcheck = false;
+    nameEl.addEventListener('blur', async ()=>{
+      const newName = nameEl.textContent.trim() || item.name;
+      if(newName !== item.name){
+        await updateDoc(doc(db,'users',state.uid,'rooms',roomId,'items',item.id), { name:newName });
+      }
+    });
+
+    const subEl = node.querySelector('.item-sub-text');
+    subEl.textContent=item.sub||'';
+    subEl.contentEditable = "true";
+    subEl.spellcheck = false;
+    subEl.addEventListener('blur', async ()=>{
+      const newSub = subEl.textContent.trim();
+      if(newSub !== (item.sub||'')){
+        await updateDoc(doc(db,'users',state.uid,'rooms',roomId,'items',item.id), { sub:newSub });
+      }
+    });
+
     node.querySelector('.item-price-text').textContent=tl.format(effectivePrice(item));
-    const payBadge=node.querySelector('.payment-badge'); const inst=node.querySelector('.installment-detail');
-    if(item.paymentType==='Taksitli'){ const n=Number(item.installments)||0; const tot=Number(item.installmentTotal)||0; const per=n>0?(tot/n):0; payBadge.textContent='Taksitli'; inst.textContent=`${n} x ${tl.format(per)} (Toplam: ${tl.format(tot)})`; }
-    else { payBadge.textContent='Peşin'; inst.textContent=''; }
+
+    const payBadge=node.querySelector('.payment-badge'); 
+    const inst=node.querySelector('.installment-detail');
+    if(item.paymentType==='Taksitli'){ 
+      const n=Number(item.installments)||0; 
+      const tot=Number(item.installmentTotal)||0; 
+      const per=n>0?(tot/n):0; 
+      payBadge.textContent='Taksitli'; 
+      inst.textContent=`${n} x ${tl.format(per)} (Toplam: ${tl.format(tot)})`; 
+    } else { 
+      payBadge.textContent='Peşin'; inst.textContent=''; 
+    }
+
+    // Quick toggles: checkbox & badge click
     node.querySelector('.chk-purchased').checked=!!item.purchased;
+    node.querySelector('.chk-purchased').addEventListener('change', async (e)=>{
+      await updateDoc(doc(db,'users',state.uid,'rooms',roomId,'items',item.id), {purchased:!!e.target.checked});
+    });
+    payBadge.title = 'Tıkla: Peşin/Taksitli değiştir';
+    payBadge.addEventListener('click', async ()=>{
+      if(item.paymentType==='Peşin'){
+        const n = Number(prompt('Taksit sayısı (>=2):', String(item.installments||6))||0);
+        const tot = Number(prompt('Taksitli toplam (TRY):', String(item.installmentTotal||0))||0);
+        if(n>=2 && tot>0){
+          await updateDoc(doc(db,'users',state.uid,'rooms',roomId,'items',item.id), { paymentType:'Taksitli', installments:n, installmentTotal:tot });
+        }
+      } else {
+        await updateDoc(doc(db,'users',state.uid,'rooms',roomId,'items',item.id), { paymentType:'Peşin', installments:0, installmentTotal:0 });
+      }
+    });
+
+    // Legacy edit/delete buttons still work
+    node.querySelector('[data-act="edit-item"]').addEventListener('click', ()=> inlineFocus(nameEl));
+    node.querySelector('[data-act="delete-item"]').addEventListener('click', async ()=>{ await deleteItem(roomId, item.id); });
+
     list.appendChild(node);
   });
   const total=room.items.reduce((s,it)=>s+effectivePrice(it),0); root.querySelector('.room-total').textContent=tl.format(total);
 }
+
+function inlineFocus(el){ el.scrollIntoView({block:'center'}); el.focus(); document.getSelection()?.selectAllChildren(el); }
 
 async function addRoom(name){ if(!name) return alert('Başlık (Tanım) girin.'); await addDoc(collection(db,'users',state.uid,'rooms'), {name, createdAt: serverTimestamp()}); }
 async function deleteRoom(roomId){
@@ -168,26 +248,63 @@ async function addItem(roomId, root){
   if(paymentType==='Taksitli' && (installments<2 || installmentTotal<=0)) return alert('Taksitli için taksit sayısı (>=2) ve toplam (>0) girin.');
 
   await addDoc(collection(db,'users',state.uid,'rooms',roomId,'items'), {
-    name, price, sub, purchased:false, createdAt: serverTimestamp(),
+    name, price, sub, purchased:false, createdAt: serverTimestamp(), order: Date.now(),
     paymentType, installments: paymentType==='Taksitli'?installments:0, installmentTotal: paymentType==='Taksitli'?installmentTotal:0
   });
   root.querySelector('.item-name').value=''; root.querySelector('.item-price').value=''; root.querySelector('.item-sub').value=''; root.querySelector('.item-payment').value='Peşin'; root.querySelector('.item-installments').value=''; root.querySelector('.item-installment-total').value=''; root.querySelector('.item-installments').classList.add('hidden'); root.querySelector('.item-installment-total').classList.add('hidden');
 }
 
 async function deleteItem(roomId,itemId){ await deleteDoc(doc(db,'users',state.uid,'rooms',roomId,'items',itemId)); }
-async function editItem(roomId,itemId){
-  const it=state.rooms[roomId].items.find(i=>i.id===itemId); if(!it) return;
-  const newName=prompt('Ürün adı:', it.name); if(newName===null) return;
-  const newPriceStr=prompt('Peşin Fiyat (örn 1999.90):', String(it.price??0)); if(newPriceStr===null) return;
-  const newSub=prompt('Ara başlık:', it.sub||''); if(newSub===null) return;
-  const pay=prompt('Ödeme tipi (Peşin/Taksitli):', it.paymentType||'Peşin'); if(pay===null) return;
-  let inst=it.installments||0, instTot=it.installmentTotal||0;
-  if(pay==='Taksitli'){ const iStr=prompt('Taksit sayısı:', String(inst||6)); if(iStr===null) return; const tStr=prompt('Taksitli toplam:', String(instTot||0)); if(tStr===null) return; inst=Number(iStr); instTot=Number(tStr); } else { inst=0; instTot=0; }
-  const val=Number(newPriceStr);
-  await updateDoc(doc(db,'users',state.uid,'rooms',roomId,'items',itemId), { name:newName.trim()||it.name, price:!Number.isNaN(val)?val:(it.price||0), sub:newSub.trim(), paymentType:(pay==='Taksitli'?'Taksitli':'Peşin'), installments:inst, installmentTotal:instTot });
-}
 
-async function togglePurchased(roomId,itemId,checked){ await updateDoc(doc(db,'users',state.uid,'rooms',roomId,'items',itemId), {purchased:!!checked}); }
+async function handleDrop(sourceRoomId, targetRoomId, itemId, afterItemId){
+  // assemble target ordering
+  const targetItems = [...state.rooms[targetRoomId].items.filter(i=>i.id!==itemId)];
+  const dragged = state.rooms[sourceRoomId].items.find(i=>i.id===itemId);
+  if(!dragged) return;
+
+  // compute insert index
+  let insertIndex = targetItems.length;
+  if(afterItemId){
+    const idx = targetItems.findIndex(i=>i.id===afterItemId);
+    if(idx>=0) insertIndex = idx+1;
+  }
+  targetItems.splice(insertIndex, 0, dragged);
+
+  if(sourceRoomId === targetRoomId){
+    // reorder in same room
+    const batch = writeBatch(db);
+    targetItems.forEach((it, i)=>{
+      const ref = doc(db,'users',state.uid,'rooms',targetRoomId,'items',it.id);
+      batch.update(ref, { order: (i+1)*10 });
+    });
+    await batch.commit();
+  }else{
+    // move across rooms: create copy then delete
+    const batch = writeBatch(db);
+    // place new orders for target with placeholder new id (item will get new id)
+    const newOrders = targetItems.map((_, i)=> (i+1)*10 );
+
+    // add new doc
+    const newData = {...dragged}; delete newData.id;
+    const targetCol = collection(db,'users',state.uid,'rooms',targetRoomId,'items');
+    // We can't get the new id before commit with batch.set on new doc ref:
+    const newRef = doc(targetCol);
+    batch.set(newRef, {...newData, order: newOrders[insertIndex]});
+
+    // reassign orders for existing items (excluding the newRef, we already set its order)
+    targetItems.forEach((it, i)=>{
+      if(i===insertIndex) return; // skip new
+      const ref = doc(db,'users',state.uid,'rooms',targetRoomId,'items', it.id);
+      batch.update(ref, { order: newOrders[i] });
+    });
+
+    // delete old
+    const oldRef = doc(db,'users',state.uid,'rooms',sourceRoomId,'items', itemId);
+    batch.delete(oldRef);
+
+    await batch.commit();
+  }
+}
 
 function updateTotals(){
   const all=Object.values(state.rooms).flatMap(r=>r.items);
@@ -201,13 +318,13 @@ function updateTotals(){
 
 function updateSectionFilter(){
   const sel=$sectionFilter; const current=sel.value;
-  sel.innerHTML='<option value="">Tüm Başlıklar</option>';
+  sel.innerHTML='<option value=\"\">Tüm Başlıklar</option>';
   Object.entries(state.rooms).forEach(([id,r])=>{ const opt=document.createElement('option'); opt.value=id; opt.textContent=r.name; sel.appendChild(opt); });
   if([...sel.options].some(o=>o.value===current)) sel.value=current;
 }
 function updateSubFilterOptions(){
   const set=new Set(); Object.values(state.rooms).forEach(r=>r.items.forEach(i=>set.add(i.sub||'')));
-  const current=$subFilter.value; $subFilter.innerHTML='<option value="">Tüm Ara Başlıklar</option>';
+  const current=$subFilter.value; $subFilter.innerHTML='<option value=\"\">Tüm Ara Başlıklar</option>';
   [...set].filter(Boolean).sort().forEach(s=>{ const opt=document.createElement('option'); opt.value=s; opt.textContent=s; $subFilter.appendChild(opt); });
   if([...$subFilter.options].some(o=>o.value===current)) $subFilter.value=current;
 }
@@ -220,7 +337,7 @@ function applyFilters(){
 
   Object.entries(state.rooms).forEach(([id,room])=>{
     const root=document.getElementById(id); if(!root) return;
-    const list=root.querySelector('[data-role="item-list"]'); list.innerHTML='';
+    const list=root.querySelector('[data-role=\"item-list\"]'); list.innerHTML='';
     const showRoom=!roomSel || roomSel===id; root.style.display=showRoom?'':'none'; if(!showRoom) return;
 
     const filtered=room.items.filter(it=>{
@@ -231,14 +348,35 @@ function applyFilters(){
       return true;
     });
 
-    filtered.forEach(item=>{
+    filtered.forEach((item, idx)=>{
       const node=$itemTemplate.content.cloneNode(true); const li=node.querySelector('li'); li.dataset.id=item.id; li.classList.toggle('purchased', !!item.purchased);
-      node.querySelector('.item-name-text').textContent=item.name;
-      node.querySelector('.item-sub-text').textContent=item.sub||'';
+      li.draggable = true;
+      li.addEventListener('dragstart', ()=>{ dragInfo = {roomId:id, itemId:item.id, sourceIndex: idx}; });
+      li.addEventListener('dragend', ()=>{ dragInfo = null; });
+
+      const nameEl = node.querySelector('.item-name-text'); nameEl.textContent=item.name; nameEl.contentEditable="true"; nameEl.spellcheck=false;
+      nameEl.addEventListener('blur', async ()=>{ const nv=nameEl.textContent.trim()||item.name; if(nv!==item.name) await updateDoc(doc(db,'users',state.uid,'rooms',id,'items',item.id), {name:nv}); });
+      const subEl = node.querySelector('.item-sub-text'); subEl.textContent=item.sub||''; subEl.contentEditable="true"; subEl.spellcheck=false;
+      subEl.addEventListener('blur', async ()=>{ const nv=subEl.textContent.trim(); if(nv!==(item.sub||'')) await updateDoc(doc(db,'users',state.uid,'rooms',id,'items',item.id), {sub:nv}); });
+
       node.querySelector('.item-price-text').textContent=tl.format(effectivePrice(item));
       const payBadge=node.querySelector('.payment-badge'); const inst=node.querySelector('.installment-detail');
       if(item.paymentType==='Taksitli'){ const n=Number(item.installments)||0; const tot=Number(item.installmentTotal)||0; const per=n>0?(tot/n):0; payBadge.textContent='Taksitli'; inst.textContent=`${n} x ${tl.format(per)} (Toplam: ${tl.format(tot)})`; } else { payBadge.textContent='Peşin'; inst.textContent=''; }
+      payBadge.addEventListener('click', async ()=>{
+        if(item.paymentType==='Peşin'){
+          const n = Number(prompt('Taksit sayısı (>=2):', String(item.installments||6))||0);
+          const tot = Number(prompt('Taksitli toplam (TRY):', String(item.installmentTotal||0))||0);
+          if(n>=2 && tot>0){ await updateDoc(doc(db,'users',state.uid,'rooms',id,'items',item.id), { paymentType:'Taksitli', installments:n, installmentTotal:tot }); }
+        }else{
+          await updateDoc(doc(db,'users',state.uid,'rooms',id,'items',item.id), { paymentType:'Peşin', installments:0, installmentTotal:0 });
+        }
+      });
+
       node.querySelector('.chk-purchased').checked=!!item.purchased;
+      node.querySelector('.chk-purchased').addEventListener('change', async (e)=>{ await updateDoc(doc(db,'users',state.uid,'rooms',id,'items',item.id), {purchased:!!e.target.checked}); });
+      node.querySelector('[data-act="edit-item"]').addEventListener('click', ()=> inlineFocus(nameEl));
+      node.querySelector('[data-act="delete-item"]').addEventListener('click', async ()=>{ await deleteItem(id, item.id); });
+
       list.appendChild(node);
     });
 
@@ -323,7 +461,7 @@ function exportToPDF(){
         {text:eff.toLocaleString('tr-TR',{style:'currency',currency:'TRY'}),alignment:'right'}
       ];
     });
-    body.push(...rows); // spread correct
+    body.push(...rows);
     const roomTotal=(r.items||[]).reduce((s,it)=>s+effectivePrice(it),0);
     body.push([
       {text:'Başlık Toplamı',colSpan:6,alignment:'right',bold:true},{},{},{},{},{}, 

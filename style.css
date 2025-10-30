@@ -10,5 +10,8 @@
 .icon-btn:hover{background:#f3f4f6;}
 .purchased .item-name-text{text-decoration:line-through;opacity:.7;}
 .hidden{display:none;}
-.room-card .item-name-text{word-break:break-word;}
-.payment-badge{background:#ecfccb;}
+.room-card .item-name-text{word-break:break-word; outline:none;}
+.room-card .item-sub-text{outline:none;}
+.payment-badge{background:#ecfccb; cursor:pointer;}
+/* Drag & Drop highlight */
+[data-role="item-list"].dnd-hover{outline:2px dashed #2563eb; outline-offset:4px; border-radius:.5rem;}
