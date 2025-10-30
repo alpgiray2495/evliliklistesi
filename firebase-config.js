@@ -1,12 +1,13 @@
 // firebase-config.js
-// Bu dosyayı kendi Firebase Web App ayarlarınızla doldurun ve repo köküne koyun.
-// Ardından script.js içinde: `import { firebaseConfig } from './firebase-config.js';` kullanın.
+// GitHub Pages için modüler CDN kullanırken bu dosyayı repo köküne koyun.
+// script.js içinde: `import { firebaseConfig } from './firebase-config.js';`
 
 export const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID'
+  apiKey: "AIzaSyA4bVf2n7Jdc9ouiEZJlBxq6dVO1PPOw44",
+  authDomain: "evliliklistesi-b24cb.firebaseapp.com",
+  projectId: "evliliklistesi-b24cb",
+  storageBucket: "evliliklistesi-b24cb.firebasestorage.app",
+  messagingSenderId: "429599579805",
+  appId: "1:429599579805:web:dec4668aa04f6e034cbe74",
+  measurementId: "G-95Y1D74GJC"
 };
