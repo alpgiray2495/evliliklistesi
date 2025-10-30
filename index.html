@@ -99,7 +99,7 @@
             <button id="addRoomBtn" class="btn md:col-span-2">Oda Ekle</button>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
             <select id="roomFilter" class="inp select-wide" aria-label="Oda filtresi">
               <option value="">Tüm Odalar</option>
             </select>
@@ -116,8 +116,8 @@
         </div>
       </section>
 
-      <!-- Odalar -->
-      <section id="roomsContainer" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"></section>
+      <!-- Odalar: tam olarak 2 sütun (desktop) -->
+      <section id="roomsContainer" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></section>
     </main>
 
     <template id="roomTemplate">
@@ -130,10 +130,10 @@
           </div>
         </div>
         <div class="p-4 flex flex-col gap-3">
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-2">
-            <input class="inp item-name md:col-span-2" type="text" placeholder="Ürün adı" aria-label="Ürün adı" />
-            <input class="inp item-price md:col-span-1" type="number" step="0.01" min="0" placeholder="Fiyat" aria-label="Ürün fiyatı" />
-            <select class="inp item-category md:col-span-2 select-wide" aria-label="Kategori seç">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-8 gap-2">
+            <input class="inp item-name lg:col-span-2" type="text" placeholder="Ürün adı" aria-label="Ürün adı" />
+            <input class="inp item-price lg:col-span-1" type="number" step="0.01" min="0" placeholder="Peşin Fiyat" aria-label="Peşin fiyat" />
+            <select class="inp item-category lg:col-span-2 select-wide" aria-label="Kategori seç">
               <option>Mobilya</option>
               <option>Beyaz Eşya</option>
               <option>Tekstil</option>
@@ -147,8 +147,14 @@
               <option>Çocuk</option>
               <option>Araç Gereç</option>
             </select>
-            <button class="btn md:col-span-1" data-act="add-item" aria-label="Ürün ekle">Ekle</button>
-            <button class="btn-subtle md:col-span-1" data-act="clear-inputs" aria-label="Alanları temizle">Temizle</button>
+            <select class="inp item-payment lg:col-span-1" aria-label="Ödeme tipi">
+              <option value="Peşin">Peşin</option>
+              <option value="Taksitli">Taksitli</option>
+            </select>
+            <input class="inp item-installments lg:col-span-1 hidden" type="number" min="2" step="1" placeholder="Taksit" aria-label="Taksit sayısı" />
+            <input class="inp item-installment-total lg:col-span-1 hidden" type="number" step="0.01" min="0" placeholder="Taksitli Toplam" aria-label="Taksitli toplam" />
+            <button class="btn lg:col-span-1" data-act="add-item" aria-label="Ürün ekle">Ekle</button>
+            <button class="btn-subtle lg:col-span-1" data-act="clear-inputs" aria-label="Alanları temizle">Temizle</button>
           </div>
 
           <ul class="divide-y" data-role="item-list"></ul>
@@ -159,13 +165,15 @@
     <template id="itemTemplate">
       <li class="py-2 flex items-start justify-between gap-3">
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <input type="checkbox" class="chk-purchased" aria-label="Satın alındı olarak işaretle" />
             <span class="font-medium item-name-text break-words"></span>
             <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 item-category-text whitespace-nowrap"></span>
+            <span class="text-xs px-2 py-0.5 rounded-full payment-badge whitespace-nowrap"></span>
           </div>
-          <div class="text-sm text-gray-600 mt-0.5">
+          <div class="text-sm text-gray-600 mt-0.5 space-x-2">
             <span class="item-price-text">₺0</span>
+            <span class="installment-detail text-gray-500"></span>
           </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">

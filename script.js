@@ -1,9 +1,10 @@
 /* =======================
-   Evlilik Listesi – Firebase Auth + Firestore (çoklu kullanıcı)
+   Evlilik Listesi – Firebase Auth + Firestore
    - Email/Şifre + Google oturum
-   - Her kullanıcı kendi verisini görür: users/{uid}/rooms/{roomId}/items/{itemId}
-   - onSnapshot ile gerçek-zamanlı
-   - Filtre/toplamlar ve XLSX/PDF dışa aktar
+   - users/{uid}/rooms/{roomId}/items/{itemId}
+   - Gerçek zamanlı dinleme, filtre/toplamlar
+   - XLSX/PDF dışa aktar
+   - Ödeme: Peşin / Taksitli (adet + taksitli toplam)
 ======================= */
 
 // ---- Firebase SDK (modüler CDN) ----
@@ -206,12 +207,30 @@ function mountRoom(roomId, roomName) {
   root.id = roomId;
   root.querySelector('.room-title').textContent = roomName;
 
+  // Ödeme tipi alanlarını göster/gizle
+  root.addEventListener('change', (e) => {
+    if (e.target.classList.contains('item-payment')) {
+      const isInst = e.target.value === 'Taksitli';
+      root.querySelector('.item-installments').classList.toggle('hidden', !isInst);
+      root.querySelector('.item-installment-total').classList.toggle('hidden', !isInst);
+    }
+  });
+
   root.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
     const act = btn.getAttribute('data-act');
     if (act === 'add-item') await addItem(roomId, root);
-    if (act === 'clear-inputs') { root.querySelector('.item-name').value=''; root.querySelector('.item-price').value=''; root.querySelector('.item-category').selectedIndex=0; }
+    if (act === 'clear-inputs') { 
+      root.querySelector('.item-name').value=''; 
+      root.querySelector('.item-price').value=''; 
+      root.querySelector('.item-category').selectedIndex=0; 
+      root.querySelector('.item-payment').value='Peşin';
+      root.querySelector('.item-installments').value='';
+      root.querySelector('.item-installment-total').value='';
+      root.querySelector('.item-installments').classList.add('hidden');
+      root.querySelector('.item-installment-total').classList.add('hidden');
+    }
     if (act === 'delete-room') await deleteRoom(roomId);
   });
 
@@ -231,6 +250,14 @@ function mountRoom(roomId, roomName) {
   $roomsContainer.appendChild(node);
 }
 
+function effectivePrice(it) {
+  if (it.paymentType === 'Taksitli') {
+    const tot = Number(it.installmentTotal) || 0;
+    return tot;
+  }
+  return Number(it.price) || 0;
+}
+
 function renderRoomItems(roomId) {
   const room = state.rooms[roomId];
   const root = document.getElementById(roomId);
@@ -242,11 +269,27 @@ function renderRoomItems(roomId) {
     li.dataset.id = item.id; li.classList.toggle('purchased', !!item.purchased);
     node.querySelector('.item-name-text').textContent = item.name;
     node.querySelector('.item-category-text').textContent = item.category || 'Genel';
-    node.querySelector('.item-price-text').textContent = tl.format(Number(item.price)||0);
+    const eff = effectivePrice(item);
+    node.querySelector('.item-price-text').textContent = tl.format(eff);
+
+    // ödeme rozetleri ve detay
+    const payBadge = node.querySelector('.payment-badge');
+    const instDetail = node.querySelector('.installment-detail');
+    if (item.paymentType === 'Taksitli') {
+      const n = Number(item.installments)||0;
+      const tot = Number(item.installmentTotal)||0;
+      const per = n>0 ? (tot/n) : 0;
+      payBadge.textContent = 'Taksitli';
+      instDetail.textContent = `${n} x ${tl.format(per)} (Toplam: ${tl.format(tot)})`;
+    } else {
+      payBadge.textContent = 'Peşin';
+      instDetail.textContent = '';
+    }
+
     node.querySelector('.chk-purchased').checked = !!item.purchased;
     list.appendChild(node);
   });
-  const total = room.items.reduce((s, it) => s + (Number(it.price)||0), 0);
+  const total = room.items.reduce((s, it) => s + effectivePrice(it), 0);
   root.querySelector('.room-total').textContent = tl.format(total);
 }
 
@@ -267,9 +310,29 @@ async function addItem(roomId, root) {
   const name = root.querySelector('.item-name').value.trim();
   const price = Number(root.querySelector('.item-price').value || 0);
   const category = root.querySelector('.item-category').value || 'Genel';
+  const paymentType = root.querySelector('.item-payment').value;
+  const installments = Number(root.querySelector('.item-installments').value || 0);
+  const installmentTotal = Number(root.querySelector('.item-installment-total').value || 0);
+
   if (!name) return alert('Ürün adı girin.');
-  await addDoc(collection(db, 'users', state.uid, 'rooms', roomId, 'items'), { name, price, category, purchased:false, createdAt: serverTimestamp() });
-  root.querySelector('.item-name').value=''; root.querySelector('.item-price').value=''; root.querySelector('.item-category').selectedIndex=0;
+  if (paymentType === 'Taksitli' && (installments < 2 || installmentTotal <= 0)) {
+    return alert('Taksitli için: taksit sayısı (>=2) ve taksitli toplam (>0) girin.');
+  }
+
+  await addDoc(collection(db, 'users', state.uid, 'rooms', roomId, 'items'), { 
+    name, price, category, purchased:false, createdAt: serverTimestamp(),
+    paymentType, installments: paymentType==='Taksitli' ? installments : 0,
+    installmentTotal: paymentType==='Taksitli' ? installmentTotal : 0
+  });
+  // clear
+  root.querySelector('.item-name').value=''; 
+  root.querySelector('.item-price').value=''; 
+  root.querySelector('.item-category').selectedIndex=0; 
+  root.querySelector('.item-payment').value='Peşin';
+  root.querySelector('.item-installments').value=''; 
+  root.querySelector('.item-installment-total').value='';
+  root.querySelector('.item-installments').classList.add('hidden');
+  root.querySelector('.item-installment-total').classList.add('hidden');
 }
 
 async function deleteItem(roomId, itemId) {
@@ -279,13 +342,25 @@ async function deleteItem(roomId, itemId) {
 async function editItem(roomId, itemId) {
   const it = state.rooms[roomId].items.find(i => i.id === itemId); if (!it) return;
   const newName = prompt('Ürün adı:', it.name); if (newName === null) return;
-  const newPriceStr = prompt('Fiyat (örn 1999.90):', String(it.price??0)); if (newPriceStr === null) return;
+  const newPriceStr = prompt('Peşin Fiyat (örn 1999.90):', String(it.price??0)); if (newPriceStr === null) return;
   const newCategory = prompt('Kategori:', it.category||'Genel'); if (newCategory === null) return;
+  const pay = prompt('Ödeme tipi (Peşin/Taksitli):', it.paymentType||'Peşin'); if (pay === null) return;
+  let inst = it.installments||0, instTot = it.installmentTotal||0;
+  if (pay === 'Taksitli') {
+    const iStr = prompt('Taksit sayısı:', String(inst||6)); if (iStr===null) return;
+    const tStr = prompt('Taksitli toplam:', String(instTot||0)); if (tStr===null) return;
+    inst = Number(iStr); instTot = Number(tStr);
+  } else {
+    inst = 0; instTot = 0;
+  }
   const val = Number(newPriceStr);
   await updateDoc(doc(db, 'users', state.uid, 'rooms', roomId, 'items', itemId), {
     name: newName.trim() || it.name,
     price: !Number.isNaN(val) ? val : (it.price||0),
-    category: newCategory.trim() || it.category
+    category: newCategory.trim() || it.category,
+    paymentType: (pay==='Taksitli'?'Taksitli':'Peşin'),
+    installments: inst,
+    installmentTotal: instTot
   });
 }
 
@@ -296,7 +371,7 @@ async function togglePurchased(roomId, itemId, checked) {
 // ---- Toplamlar & Filtreler ----
 function updateTotals() {
   const allItems = Object.values(state.rooms).flatMap(r => r.items);
-  const grandTotal = allItems.reduce((s, it) => s + (Number(it.price)||0), 0);
+  const grandTotal = allItems.reduce((s, it) => s + effectivePrice(it), 0);
   document.getElementById('grandTotal').textContent = tl.format(grandTotal);
   document.getElementById('grandCount').textContent = String(allItems.length);
   updatePurchasedStats();
@@ -352,12 +427,25 @@ function applyFilters() {
       const li = node.querySelector('li'); li.dataset.id = item.id; li.classList.toggle('purchased', !!item.purchased);
       node.querySelector('.item-name-text').textContent = item.name;
       node.querySelector('.item-category-text').textContent = item.category||'Genel';
-      node.querySelector('.item-price-text').textContent = tl.format(Number(item.price)||0);
+      const eff = effectivePrice(item);
+      node.querySelector('.item-price-text').textContent = tl.format(eff);
+      const payBadge = node.querySelector('.payment-badge');
+      const instDetail = node.querySelector('.installment-detail');
+      if (item.paymentType === 'Taksitli') {
+        const n = Number(item.installments)||0;
+        const tot = Number(item.installmentTotal)||0;
+        const per = n>0 ? (tot/n) : 0;
+        payBadge.textContent = 'Taksitli';
+        instDetail.textContent = `${n} x ${tl.format(per)} (Toplam: ${tl.format(tot)})`;
+      } else {
+        payBadge.textContent = 'Peşin';
+        instDetail.textContent = '';
+      }
       node.querySelector('.chk-purchased').checked = !!item.purchased;
       list.appendChild(node);
     });
 
-    const total = room.items.reduce((s, it) => s + (Number(it.price)||0), 0);
+    const total = room.items.reduce((s, it) => s + effectivePrice(it), 0);
     root.querySelector('.room-total').textContent = tl.format(total);
   });
 
@@ -378,7 +466,7 @@ function updateFilteredTotals() {
       if (statSel === 'purchased' && !it.purchased) return;
       if (statSel === 'not' && it.purchased) return;
       if (q && !it.name.toLowerCase().includes(q)) return;
-      total += Number(it.price)||0; count += 1;
+      total += effectivePrice(it); count += 1;
     });
   });
   const hasFilter = !!(roomSel || catSel || statSel || q);
@@ -404,8 +492,11 @@ function exportToXLSX() {
     'Oda': state.rooms[rid].name,
     'Ürün': it.name,
     'Kategori': it.category||'Genel',
-    'Fiyat (TRY)': Number(it.price)||0,
-    'Satın alındı': it.purchased ? 'Evet' : 'Hayır'
+    'Ödeme': it.paymentType||'Peşin',
+    'Taksit Sayısı': Number(it.installments)||0,
+    'Taksitli Toplam (TRY)': Number(it.installmentTotal)||0,
+    'Peşin Fiyat (TRY)': Number(it.price)||0,
+    'Toplam (Efektif)': effectivePrice(it)
   })));
   const sumSheet = XLSX.utils.json_to_sheet(allItems);
   XLSX.utils.book_append_sheet(wb, sumSheet, 'Özet');
@@ -414,8 +505,11 @@ function exportToXLSX() {
     const rows = r.items.map(it => ({
       'Ürün': it.name,
       'Kategori': it.category||'Genel',
-      'Fiyat (TRY)': Number(it.price)||0,
-      'Satın alındı': it.purchased ? 'Evet' : 'Hayır'
+      'Ödeme': it.paymentType||'Peşin',
+      'Taksit Sayısı': Number(it.installments)||0,
+      'Taksitli Toplam (TRY)': Number(it.installmentTotal)||0,
+      'Peşin Fiyat (TRY)': Number(it.price)||0,
+      'Toplam (Efektif)': effectivePrice(it)
     }));
     const sh = XLSX.utils.json_to_sheet(rows.length ? rows : [{Bilgi:'Bu odada ürün yok'}]);
     XLSX.utils.book_append_sheet(wb, sh, r.name.substring(0,31));
@@ -433,25 +527,33 @@ function exportToPDF() {
   Object.entries(state.rooms).forEach(([rid, r], idx) => {
     if (idx>0) y += 10;
     doc.setFontSize(12); doc.text(r.name + ' (' + r.items.length + ' ürün)', margin, y); y += 6;
-    const body = r.items.map(it => [it.name, it.category||'Genel', (Number(it.price)||0).toLocaleString('tr-TR', {style:'currency', currency:'TRY'}), it.purchased?'Evet':'Hayır']);
+    const body = r.items.map(it => [
+      it.name, 
+      it.category||'Genel', 
+      it.paymentType||'Peşin',
+      String(Number(it.installments)||0),
+      tl.format(Number(it.installmentTotal)||0),
+      tl.format(Number(it.price)||0),
+      tl.format(effectivePrice(it))
+    ]);
     doc.autoTable({
-      head: [['Ürün', 'Kategori', 'Fiyat', 'Satın alındı']],
-      body: body.length ? body : [['(boş)', '-', '-', '-']],
+      head: [['Ürün','Kategori','Ödeme','Taksit','Taksitli Toplam','Peşin Fiyat','Toplam (Efektif)']],
+      body: body.length ? body : [['(boş)', '-', '-', '-', '-', '-', '-']],
       startY: y,
       styles: { fontSize: 9 },
       headStyles: { fillColor: [240,240,240] },
       margin: { left: margin, right: margin }
     });
     y = doc.lastAutoTable.finalY + 8;
-    const total = r.items.reduce((s,it)=>s+(Number(it.price)||0),0);
-    doc.setFontSize(10); doc.text('Oda Toplamı: ' + total.toLocaleString('tr-TR', {style:'currency', currency:'TRY'}), margin, y);
+    const total = r.items.reduce((s,it)=>s+effectivePrice(it),0);
+    doc.setFontSize(10); doc.text('Oda Toplamı: ' + tl.format(total), margin, y);
     y += 10;
     if (y > 770) { doc.addPage(); y = margin; }
   });
 
   // Grand total
-  const grand = Object.values(state.rooms).flatMap(r=>r.items).reduce((s,it)=>s+(Number(it.price)||0),0);
-  doc.setFontSize(12); doc.text('Genel Toplam: ' + grand.toLocaleString('tr-TR', {style:'currency', currency:'TRY'}), margin, y+6);
+  const grand = Object.values(state.rooms).flatMap(r=>r.items).reduce((s,it)=>s+effectivePrice(it),0);
+  doc.setFontSize(12); doc.text('Genel Toplam: ' + tl.format(grand), margin, y+6);
   doc.save('evlilik-listesi.pdf');
 }
 
