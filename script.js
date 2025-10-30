@@ -3,21 +3,15 @@
    - Email/Şifre + Google oturum
    - users/{uid}/rooms/{roomId}/items/{itemId}
    - Gerçek zamanlı dinleme, filtre/toplamlar
-   - XLSX/PDF dışa aktar
+   - XLSX (SheetJS) + PDF (pdfmake, Unicode) dışa aktar
    - Ödeme: Peşin / Taksitli (adet + taksitli toplam)
 ======================= */
 
 // ---- Firebase SDK (modüler CDN) ----
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js';
 import { 
-  getAuth, 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  sendPasswordResetEmail, 
-  signOut, 
-  GoogleAuthProvider, 
-  signInWithPopup 
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  sendPasswordResetEmail, signOut, GoogleAuthProvider, signInWithPopup
 } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js';
 import { 
   getFirestore, collection, doc, addDoc, setDoc, getDocs, deleteDoc, updateDoc, 
@@ -476,7 +470,7 @@ function updateFilteredTotals() {
   document.getElementById('filteredCount').textContent = `${count} ürün`;
 }
 
-// ---- Dışa aktar: Excel (XLSX) ve PDF ----
+// ---- Dışa aktar: Excel (XLSX) ve PDF (pdfmake) ----
 $exportXlsxBtn.addEventListener('click', () => {
   try { exportToXLSX(); } catch (e) { alert('XLSX dışa aktarım hatası: ' + (e.message||e)); }
 });
@@ -518,43 +512,94 @@ function exportToXLSX() {
 }
 
 function exportToPDF() {
-  if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF kütüphanesi yüklenemedi');
-  const doc = new window.jspdf.jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
-  const margin = 36; let y = margin;
-  doc.setFontSize(16); doc.text('Evlilik Listesi', margin, y); y += 16;
-  doc.setFontSize(10); doc.text(new Date().toLocaleString('tr-TR'), margin, y); y += 14;
+  if (typeof pdfMake === 'undefined' || !pdfMake.createPdf) {
+    throw new Error('pdfmake kütüphanesi yüklenemedi');
+  }
 
-  Object.entries(state.rooms).forEach(([rid, r], idx) => {
-    if (idx>0) y += 10;
-    doc.setFontSize(12); doc.text(r.name + ' (' + r.items.length + ' ürün)', margin, y); y += 6;
-    const body = r.items.map(it => [
-      it.name, 
-      it.category||'Genel', 
-      it.paymentType||'Peşin',
-      String(Number(it.installments)||0),
-      tl.format(Number(it.installmentTotal)||0),
-      tl.format(Number(it.price)||0),
-      tl.format(effectivePrice(it))
-    ]);
-    doc.autoTable({
-      head: [['Ürün','Kategori','Ödeme','Taksit','Taksitli Toplam','Peşin Fiyat','Toplam (Efektif)']],
-      body: body.length ? body : [['(boş)', '-', '-', '-', '-', '-', '-']],
-      startY: y,
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [240,240,240] },
-      margin: { left: margin, right: margin }
+  const roomsArray = Object.entries(state.rooms).map(([rid, r]) => ({ id: rid, ...r }));
+  const content = [];
+
+  // Başlık
+  content.push(
+    { text: 'Evlilik Listesi', style: 'title' },
+    { text: new Date().toLocaleString('tr-TR'), style: 'subtitle', margin: [0, 0, 0, 8] }
+  );
+
+  // Her oda için tablo
+  roomsArray.forEach((r, idx) => {
+    const body = [
+      [{ text: 'Ürün', style: 'th' }, { text: 'Kategori', style: 'th' }, { text: 'Ödeme', style: 'th' },
+       { text: 'Taksit', style: 'th', alignment: 'right' }, { text: 'Taksitli Toplam', style: 'th', alignment: 'right' },
+       { text: 'Peşin Fiyat', style: 'th', alignment: 'right' }, { text: 'Toplam (Efektif)', style: 'th', alignment: 'right' }]
+    ];
+
+    const rows = (r.items||[]).map(it => {
+      const inst = Number(it.installments)||0;
+      const instTot = Number(it.installmentTotal)||0;
+      const price = Number(it.price)||0;
+      const eff = effectivePrice(it);
+      return [
+        { text: it.name, noWrap: false },
+        { text: it.category || 'Genel' },
+        { text: it.paymentType || 'Peşin' },
+        { text: inst ? String(inst) : '-', alignment: 'right' },
+        { text: instTot ? (instTot).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) : '-', alignment: 'right' },
+        { text: price ? price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) : '-', alignment: 'right' },
+        { text: eff.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }), alignment: 'right' }
+      ];
     });
-    y = doc.lastAutoTable.finalY + 8;
-    const total = r.items.reduce((s,it)=>s+effectivePrice(it),0);
-    doc.setFontSize(10); doc.text('Oda Toplamı: ' + tl.format(total), margin, y);
-    y += 10;
-    if (y > 770) { doc.addPage(); y = margin; }
+
+    if (rows.length === 0) {
+      rows.push([{ text: '(boş)', colSpan: 7, alignment: 'center', italics: true }, {}, {}, {}, {}, {}, {}]);
+    }
+    body.push(...rows);
+
+    // Oda toplamı
+    const roomTotal = (r.items||[]).reduce((s,it)=>s+effectivePrice(it),0);
+    body.push([
+      { text: 'Oda Toplamı', colSpan: 6, alignment: 'right', bold: true }, {}, {}, {}, {}, {},
+      { text: roomTotal.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }), alignment: 'right', bold: true }
+    ]);
+
+    content.push(
+      { text: `${r.name} (${(r.items||[]).length} ürün)`, style: 'sectionTitle', margin: [0, idx===0?0:10, 0, 4] },
+      {
+        table: {
+          headerRows: 1,
+          widths: ['*', 80, 60, 35, 75, 75, 90],
+          body
+        },
+        layout: {
+          fillColor: (rowIndex) => rowIndex === 0 ? '#f3f4f6' : null,
+          hLineColor: '#e5e7eb',
+          vLineColor: '#e5e7eb'
+        }
+      }
+    );
   });
 
-  // Grand total
-  const grand = Object.values(state.rooms).flatMap(r=>r.items).reduce((s,it)=>s+effectivePrice(it),0);
-  doc.setFontSize(12); doc.text('Genel Toplam: ' + tl.format(grand), margin, y+6);
-  doc.save('evlilik-listesi.pdf');
+  const grand = roomsArray.flatMap(r=>r.items||[]).reduce((s,it)=>s+effectivePrice(it),0);
+  content.push({ text: `Genel Toplam: ${grand.toLocaleString('tr-TR', { style:'currency', currency:'TRY' })}`, style: 'grandTotal', margin: [0, 10, 0, 0] });
+
+  const docDefinition = {
+    pageSize: 'A4',
+    pageMargins: [30, 40, 30, 40],
+    defaultStyle: { font: 'Roboto', fontSize: 10 },
+    styles: {
+      title: { fontSize: 18, bold: true },
+      subtitle: { color: '#6b7280', margin: [0, 0, 0, 6] },
+      sectionTitle: { fontSize: 12, bold: true },
+      th: { bold: true },
+      grandTotal: { fontSize: 12, bold: true }
+    },
+    footer: (currentPage, pageCount) => ({
+      text: `${currentPage} / ${pageCount}`, alignment: 'right', margin: [0, 0, 30, 0], color: '#9ca3af'
+    }),
+    content
+  };
+
+  // pdfmake vfs_fonts içinde Roboto gömülü gelir
+  pdfMake.createPdf(docDefinition).download('evlilik-listesi.pdf');
 }
 
 // ---- UI events ----

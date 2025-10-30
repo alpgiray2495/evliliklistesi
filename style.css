@@ -1,7 +1,7 @@
 /* Yardımcı stiller ve mobil uyumluluk */
 :root { --radius-xl: 1rem; }
 .card { background: #fff; border-radius: var(--radius-xl); box-shadow: 0 6px 18px rgba(0,0,0,0.08); padding: 1rem; }
-.inp { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; width: 100%; }
+.inp { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; width: 100%; min-height:42px; font-size:14px; }
 .select-wide { min-width: 160px; }
 .btn { background: #2563eb; color: #fff; padding: 0.5rem 1rem; border-radius: 0.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
 .btn:hover { background: #1d4ed8; }
@@ -13,8 +13,4 @@
 .hidden { display: none; }
 /* Uzun metinler taşmasın */
 .room-card .item-name-text { word-break: break-word; }
-
-/* Inputs should have reasonable min-height and font for readability */
-.inp{min-height:42px;font-size:14px;}
-select.inp{padding-right:2rem;}
 .payment-badge{background:#ecfccb;}
