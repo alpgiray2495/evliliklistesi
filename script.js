@@ -23,16 +23,8 @@ import {
   onSnapshot, query, orderBy, serverTimestamp 
 } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js';
 
-// ---- Firebase Config ----
-// TODO: Projenizin bilgilerini girin
-const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID'
-};
+// ---- Config (ayrı dosyadan) ----
+import { firebaseConfig } from './firebase-config.js';
 
 // ---- Init ----
 const app = initializeApp(firebaseConfig);
