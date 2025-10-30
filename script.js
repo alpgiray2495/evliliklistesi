@@ -174,7 +174,7 @@ function initRealtime(uid) {
         subscribeItems(uid, id);
       } else if (ch.type === 'modified') {
         state.rooms[id].name = ch.doc.data().name;
-        document.getElementById(id)?.querySelector('.room-title').textContent = ch.doc.data().name;
+        { const el = document.getElementById(id); if (el) el.querySelector('.room-title').textContent = ch.doc.data().name; }
       } else if (ch.type === 'removed') {
         if (state.unsubItems[id]) { state.unsubItems[id](); delete state.unsubItems[id]; }
         delete state.rooms[id];
