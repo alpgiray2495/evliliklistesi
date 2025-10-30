@@ -64,8 +64,8 @@ const $backToLogin2 = document.getElementById('backToLogin2');
 const $signOutBtn = document.getElementById('signOutBtn');
 
 // Signed-in controls
-const $exportBtn = document.getElementById('exportBtn');
-const $importInput = document.getElementById('importInput');
+const $exportXlsxBtn = document.getElementById('exportXlsxBtn');
+const $exportPdfBtn = document.getElementById('exportPdfBtn');
 
 // Bellek içi durum
 const state = {
@@ -388,31 +388,70 @@ function updateFilteredTotals() {
   document.getElementById('filteredCount').textContent = `${count} ürün`;
 }
 
-// ---- JSON içe/dışa aktar ----
-$exportBtn.addEventListener('click', () => {
-  const data = { rooms: state.rooms };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'evlilik-listesi.json'; a.click(); URL.revokeObjectURL(url);
+// ---- Dışa aktar: Excel (XLSX) ve PDF ----
+$exportXlsxBtn.addEventListener('click', () => {
+  try { exportToXLSX(); } catch (e) { alert('XLSX dışa aktarım hatası: ' + (e.message||e)); }
+});
+$exportPdfBtn.addEventListener('click', () => {
+  try { exportToPDF(); } catch (e) { alert('PDF dışa aktarım hatası: ' + (e.message||e)); }
 });
 
-$importInput.addEventListener('change', async (e) => {
-  const file = e.target.files?.[0]; if (!file) return;
-  const text = await file.text();
-  const data = JSON.parse(text);
-  if (!data.rooms) { alert('Geçersiz dosya'); e.target.value = ''; return; }
-  for (const [, r] of Object.entries(data.rooms)) {
-    const ref = await addDoc(collection(db, 'users', state.uid, 'rooms'), { name: r.name || 'Oda', createdAt: serverTimestamp() });
-    if (Array.isArray(r.items)) {
-      for (const it of r.items) {
-        await addDoc(collection(db, 'users', state.uid, 'rooms', ref.id, 'items'), {
-          name: it.name || 'Ürün', price: Number(it.price)||0, category: it.category||'Genel', purchased: !!it.purchased, createdAt: serverTimestamp()
-        });
-      }
-    }
-  }
-  e.target.value = '';
-});
+function exportToXLSX() {
+  if (!window.XLSX) throw new Error('XLSX kütüphanesi yüklenemedi');
+  const wb = XLSX.utils.book_new();
+  // Summary sheet
+  const allItems = Object.entries(state.rooms).flatMap(([rid, r]) => r.items.map(it => ({
+    Oda: state.rooms[rid].name,
+    Ürün: it.name,
+    Kategori: it.category||'Genel',
+    Fiyat: Number(it.price)||0,
+    Durum: it.purchased ? 'Satın alındı' : 'Bekliyor'
+  })));
+  const sumSheet = XLSX.utils.json_to_sheet(allItems);
+  XLSX.utils.book_append_sheet(wb, sumSheet, 'Özet');
+  // Per-room sheets
+  Object.entries(state.rooms).forEach(([rid, r]) => {
+    const rows = r.items.map(it => ({ Ürün: it.name, Kategori: it.category||'Genel', Fiyat: Number(it.price)||0, Durum: it.purchased?'Satın alındı':'Bekliyor' }));
+    const sh = XLSX.utils.json_to_sheet(rows.length ? rows : [{Bilgi:'Bu odada ürün yok'}]);
+    XLSX.utils.book_append_sheet(wb, sh, r.name.substring(0,31));
+  });
+  XLSX.writeFile(wb, 'evlilik-listesi.xlsx');
+}
+
+function exportToPDF() {
+  if (!window.jspdf || !window.jspdf.jsPDF) throw new Error('jsPDF kütüphanesi yüklenemedi');
+  const doc = new window.jspdf.jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+  const margin = 36; let y = margin;
+  doc.setFontSize(16); doc.text('Evlilik Listesi', margin, y); y += 16;
+  doc.setFontSize(10); doc.text(new Date().toLocaleString('tr-TR'), margin, y); y += 14;
+
+  const autoTable = doc.autoTable || (doc as any).autoTable; // typesafe değil ama tarayıcıda mevcut
+
+  Object.entries(state.rooms).forEach(([rid, r], idx) => {
+    if (idx>0) y += 10;
+    doc.setFontSize(12); doc.text(r.name + ' (' + r.items.length + ' ürün)', margin, y); y += 6;
+    const body = r.items.map(it => [it.name, it.category||'Genel', (Number(it.price)||0).toLocaleString('tr-TR', {style:'currency', currency:'TRY'}), it.purchased?'Evet':'Hayır']);
+    (doc as any).autoTable({
+      head: [['Ürün', 'Kategori', 'Fiyat', 'Satın alındı']],
+      body: body.length ? body : [['(boş)', '-', '-', '-']],
+      startY: y,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [240,240,240] },
+      margin: { left: margin, right: margin }
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+    const total = r.items.reduce((s,it)=>s+(Number(it.price)||0),0);
+    doc.setFontSize(10); doc.text('Oda Toplamı: ' + total.toLocaleString('tr-TR', {style:'currency', currency:'TRY'}), margin, y);
+    y += 10;
+    if (y > 770) { doc.addPage(); y = margin; }
+  });
+
+  // Grand total
+  const grand = Object.values(state.rooms).flatMap(r=>r.items).reduce((s,it)=>s+(Number(it.price)||0),0);
+  doc.setFontSize(12); doc.text('Genel Toplam: ' + grand.toLocaleString('tr-TR', {style:'currency', currency:'TRY'}), margin, y+6);
+  doc.save('evlilik-listesi.pdf');
+}
+
 
 // ---- UI events ----
 document.getElementById('addRoomBtn').addEventListener('click', () => {
