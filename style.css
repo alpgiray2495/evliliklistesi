@@ -13,3 +13,8 @@
 .hidden { display: none; }
 /* Uzun metinler taşmasın */
 .room-card .item-name-text { word-break: break-word; }
+
+/* Inputs should have reasonable min-height and font for readability */
+.inp{min-height:42px;font-size:14px;}
+select.inp{padding-right:2rem;}
+.payment-badge{background:#ecfccb;}
