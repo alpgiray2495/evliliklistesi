@@ -16,7 +16,7 @@
       <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
         <h1 class="text-2xl font-bold" role="heading" aria-level="1">Evlilik Listesi</h1>
         <div class="flex items-center gap-3">
-          <!-- Signed-in controls -->
+          <!-- Oturum açıkken gözükecek kutu -->
           <div id="userBox" class="hidden items-center gap-3">
             <span id="userEmail" class="text-sm text-gray-600"></span>
             <button id="exportBtn" class="btn-subtle" aria-label="JSON olarak dışa aktar">Dışa aktar (JSON)</button>
@@ -25,7 +25,6 @@
             </label>
             <button id="signOutBtn" class="btn-subtle">Çıkış</button>
           </div>
-          <!-- Signed-out controls (header tarafında gerek yok) -->
         </div>
       </div>
     </header>
@@ -177,7 +176,7 @@
       </li>
     </template>
 
-    <!-- Firebase + App JS (module) -->
+    <!-- App JS (modüler) -->
     <script type="module" src="script.js"></script>
   </body>
 </html>
